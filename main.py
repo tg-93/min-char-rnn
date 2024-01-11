@@ -2,6 +2,7 @@
 # Requires a sampling procedure and loss function defined separately.
 
 import numpy as np
+import simple_rnn
 
 # data I/O
 data = open('input.txt', 'r').read() # should be simple plain text file

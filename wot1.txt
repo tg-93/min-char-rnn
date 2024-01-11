@@ -85,8 +85,6 @@ Book 1 of The Wheel of Time:
 
  Then he was gone, and the mountain and the island stood alone. Waiting.
 
- �
-
  And the Shadow fell upon the Land, and the World was riven stone from stone. The oceans fled, and the mountains were swallowed up, and the nations were scattered to the eight corners of the World. The moon was as blood, and the sun was as ashes. The seas boiled, and the living envied the dead. All was shattered, and all but memory lost, and one memory above all others, of him who brought the Shadow and the Breaking of the World. And him they named Dragon.
 
  (from Aleth nin Taerin alta Camora
@@ -1273,7 +1271,7 @@ Book 1 of The Wheel of Time:
 
  The stewpot lay upside down in the ashes on the hearth. Splintered, broken wood littered the room; not a single piece of furniture remained whole. Even the table rested at an angle, two legs hacked to rough stubs. Every drawer had been pulled out and smashed; every cupboard and cabinet stood open, many doors hanging by one hinge. Their contents were strewn over the wreckage, and everything was dusted with white. Flour and salt, to judge from the slashed sacks tossed down by the fireplace. Four twisted bodies made a tangle in the remnants of the furnishings. Trollocs.
 
- Rand recognized one by its ram's horns. The others were much the same, even in their differences, a repulsive m�lange of human faces distorted by muzzles, horns, feathers, and fur. Their hands, almost human, only made it worse. Two wore boots; the others had hooves. He watched without blinking until his eyes burned. None of the Trollocs moved. They had to be dead. And Tam was waiting.
+ Rand recognized one by its ram's horns. The others were much the same, even in their differences, a repulsive melange of human faces distorted by muzzles, horns, feathers, and fur. Their hands, almost human, only made it worse. Two wore boots; the others had hooves. He watched without blinking until his eyes burned. None of the Trollocs moved. They had to be dead. And Tam was waiting.
 
  He ran in through the front door and stopped, gagging at the stench. A stable that had not been mucked out in months was the only thing he could think of that might come close to matching it. Vile smears defiled the walls. Trying to breathe through his mouth, he hurriedly began poking through the mess on the floor. There had been a waterbag in one of the cupboards.
 
@@ -3759,7 +3757,6 @@ Book 1 of The Wheel of Time:
 
  The three young men from Emond's Field began clapping their hands with the first note of "The Wind That Shakes the Willow," and they were not the only ones. It was a favorite in the Two Rivers, and in Baerlon, too, it seemed. Here and there voices even took up the words, not so off-key as for anyone to hush them.
 
- �
 
  "My love is gone, carried away
 
@@ -3781,7 +3778,6 @@ Book 1 of The Wheel of Time:
 
  though cold wind shakes the willow. "
 
- �
 
  The second song was not so sad. In fact, "Only One Bucket of Water" seemed even more merry than usual by comparison, which might have been the gleeman's intent. People rushed to clear tables from the floor to make room for dancing, and began kicking up their heels until the walls shook from the stomping and whirling. The first dance ended with laughing dancers leaving the floor holding their sides, and new people taking their places.
 
@@ -4925,9 +4921,9 @@ Book 1 of The Wheel of Time:
 
  Listen to the Wind
 
- Sunrise creeping across the River Arinelle found its way into the hollow not far from the river-bank where Nynaeve sat with her back�����against the trunk of a young oak, breathing the deep breath of sleep.
+ Sunrise creeping across the River Arinelle found its way into the hollow not far from the river-bank where Nynaeve sat with her back against the trunk of a young oak, breathing the deep breath of sleep.
 
- Her��horse slept, too, head down and legs spraddled in the manner of horses. The reins were wrapped around her wrist. As sunlight fell on the horse's eyelids, the animal opened its eyes and raised its head, jerking the reins. Nynaeve came awake with a start.
+ Her horse slept, too, head down and legs spraddled in the manner of horses. The reins were wrapped around her wrist. As sunlight fell on the horse's eyelids, the animal opened its eyes and raised its head, jerking the reins. Nynaeve came awake with a start.
 
  For a moment she stared, wondering where she was, then stared around even more wildly when she remembered. But there were only the trees, and her horse, and a carpet of old, dry leaves across the bottom of the hollow. In the deepest dimness, some of last year's shadowshand mushrooms made rings on a fallen log.
 
@@ -5963,7 +5959,6 @@ Book 1 of The Wheel of Time:
 
  The broad, milk-white arch that gave the town its name dominated Whitebridge as much close up as it did from afar, but once Rand was in the streets he realized that the town was every bit as big as Baerlon, though not so crowded with people. A few carts moved in the streets, pulled by horse or ox or donkey or man, but no carriages. Those most likely all belonged to the merchants and were clustered down at the dock.
 
- �
 
  Shops of every description lined the streets, and many of the tradesmen worked in front of their establishments, under the signs swinging in the wind. They passed a man mending pots, and a tailor holding folds of cloth up to the light for a customer. A shoemaker, sitting in his doorway, tapped his hammer on the heel of a boot. Hawkers cried their services at sharpening knives and scissors, or tried to interest the passersby in their skimpy trays of fruit or vegetables, but none was getting much interest. Shops selling food had the same pitiful displays of produce Rand remembered from Baerlon. Even the fishmongers displayed only small piles of small fish, for all the boats on the river. Times were not really hard yet, but everyone could see what was coming if the weather did not change soon, and those faces that were not fixed into worried frowns seemed to stare at something unseen, something unpleasant.
 
@@ -6023,7 +6018,6 @@ Book 1 of The Wheel of Time:
 
  Thom did not seem to hear him. In a soft voice the gleeman began to recite to himself.
 
- �
 
  "In the last, lorn fight
 
@@ -6035,7 +6029,6 @@ Book 1 of The Wheel of Time:
 
  for the grave is no bar to my call."
 
- �
 
  "That's it." Bartim grinned as if he could already see the crowds handing him their money while they listened to Thom. "That's it. The Great Hunt of the Horn. You tell that one, and they'll be hanging from the rafters in here. Everybody's heard about the proclamation."
 
@@ -6043,7 +6036,6 @@ Book 1 of The Wheel of Time:
 
  "Some," Bartim said slowly. "There's always some, from east and west both." He looked at each of them in turn, suddenly wary. "What do they look like, these friends of yours?"
 
- �
 
  Rand opened his mouth, but Thom, abruptly back from wherever he had been, gave him a sharp, silencing look. With an exasperated sigh the gleeman turned to the innkeeper. "Two men and three women," he said reluctantly. "They may be together, or maybe not." He gave thumbnail sketches, painting each one in just a few words, enough for anyone who had seen them to recognize without giving away anything about who they were.
 
@@ -8617,7 +8609,7 @@ Book 1 of The Wheel of Time:
 
  Only a few thin strands of hemp remained whole under her fingers. Slowly she headed toward the next line, watching the horse until she could no longer see if it was looking at her or not, then drew a ragged breath. If they were all like that, she did not think she would last.
 
- �����At the next picket-rope, though, and the next, and the next, the horses remained asleep, even when she cut her thumb and bit off a yelp. Sucking the cut, she looked warily back the way she had come. Upwind as she was, she could no longer hear the guards make their exchange, but they might have heard her if they were in the right place. If they were coming to see what the noise had been, the wind would keep her from hearing them until they were right on top of her. Time to go. With four horses out of five running loose, they won't be chasing anyone.
+At the next picket-rope, though, and the next, and the next, the horses remained asleep, even when she cut her thumb and bit off a yelp. Sucking the cut, she looked warily back the way she had come. Upwind as she was, she could no longer hear the guards make their exchange, but they might have heard her if they were in the right place. If they were coming to see what the noise had been, the wind would keep her from hearing them until they were right on top of her. Time to go. With four horses out of five running loose, they won't be chasing anyone.
 
  But she did not move. She could imagine Lan's eyes when he heard what she had done. There would be no accusation in them; her reasoning was sound, and he would not expect any more of her. She was a Wisdom, not a bloody great invincible Warder who could make himself all but invisible. Jaw set, she moved to the last picket-line. The first horse on it was Bela.
 
