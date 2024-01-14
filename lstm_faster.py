@@ -149,5 +149,5 @@ class LSTM:
 		os.mkdir(name)
 		np.save(name + '/Wfioc.npy', self.Wfioc)
 		np.save(name + '/Why.npy', self.Why)
-		np.save(name + '/bfioc.npy', self.bf)
+		np.save(name + '/bfioc.npy', self.bfioc)
 		np.save(name + '/by.npy', self.by)
