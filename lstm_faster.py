@@ -84,10 +84,7 @@ class LSTM:
 			loss += -np.log(probs[t][targets[t],0]) # softmax (cross-entropy loss)
 
 		# backward pass: gradients
-		dWf, dbf = np.zeros_like(self.Wf), np.zeros_like(self.bf)
-		dWi, dbi = np.zeros_like(self.Wi), np.zeros_like(self.bi)
-		dWo, dbo = np.zeros_like(self.Wo), np.zeros_like(self.bo)
-		dWxc, dbc = np.zeros_like(self.Wxc), np.zeros_like(self.bc)
+		dWfioc, dbfioc = np.zeros_like(self.Wfioc), np.zeros_like(self.bfioc)
 		dWhy, dby = np.zeros_like(self.Why), np.zeros_like(self.by)
 		
 		dhnext = np.zeros_like(self.h) # derivative wrt h(t+1), since h(t) is propagated to t+1.
@@ -105,36 +102,36 @@ class LSTM:
 			xh = np.vstack((xs[t], hs[t-1]))
 			# backprop through o-gate (sigmoid)
 			do_raw = dh*hs[t]*(1.0 - ogate[t])
-			dWo += np.dot(do_raw, xh.T)
-			dbo += do_raw
 			
 			# backprop to c
 			dc = dh*ogate[t]*(1.0 - h_new[t]*h_new[t]) + dcnext
 
 			# backprop before i-gate and through tanh
 			dc_raw = dc*igate[t]*(1.0 - c_new[t]*c_new[t])
-			dWxc += np.dot(dc_raw, xh.T)
-			dbc += dc_raw
 
 			# backprop to f-gate and i-gate params
-			df_raw = dc*((cs[t-1]*fgate[t]*(1.0 - fgate[t])) +  (c_new[t]*igate[t]*(1.0 - igate[t])))
-			dWf += np.dot(df_raw, xh.T)
-			dbf += df_raw
+			df_raw = dc*(cs[t-1]*fgate[t]*(1.0 - fgate[t]))
+			di_raw = dc*(c_new[t]*igate[t]*(1.0 - igate[t]))
+
+			dfioc_raw = np.vstack((df_raw,  di_raw, do_raw, dc_raw))
+			dWfioc += np.dot(dfioc_raw, xh.T)
+			dbfioc += dfioc_raw
 			
 			# backprop to h(t-1) and c(t-1)
 			dcnext = dc*fgate[t]
-			dxh = np.dot(self.Wo.T, do_raw) + np.dot(self.Wf.T, df_raw) + np.dot(self.Wxc.T, dc_raw)
+			dxh = np.dot(self.Wfioc.T, dfioc_raw)
+			dhnext = dxh[self.vocab_size:]
 
-		for dparam in [dWf, dbf, dWi, dbi, dWxc, dbc, dWo, dbo, dWhy, dby]:
+		for dparam in [dWfioc, dbfioc, dWhy, dby]:
 			np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
 
 		self.h = hs[len(inputs)-1]
 		self.c = cs[len(inputs)-1]
 		# perform parameter update with Adagrad
 		for param, dparam, mem in zip(
-			[self.Wf, self.bf, self.Wi, self.bi, self.Wxc, self.bc, self.Wo, self.bo, self.Why, self.by], 
-			[dWf, dbf, dWi, dbi, dWxc, dbc, dWo, dbo, dWhy, dby], 
-			[self.mWf, self.mbf, self.mWi, self.mbi, self.mWxc, self.mbc, self.mWo, self.mbo, self.mWhy, self.mby]):
+			[self.Wfioc, self.bfioc, self.Why, self.by], 
+			[dWfioc, dbfioc, dWhy, dby], 
+			[self.mWfioc, self.mbfioc, self.mWhy, self.mby]):
 			mem += dparam * dparam
 			param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update
 
