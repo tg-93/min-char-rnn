@@ -47,7 +47,7 @@ while epoch <= num_epoch:
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
 
   # sample from the model now and then
-  if n>0 and n % 5*max(int(math.log2(n)), 10) == 0:
+  if n>0 and n % (5*max(int(math.log2(n)), 10)) == 0:
     sample_ix = model.sample(200, inputs[0])
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
     print(f'----\n{txt}\n----')
