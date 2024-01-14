@@ -162,13 +162,17 @@ class LSTM:
 			dbc += dc_raw
 
 			# backprop to f-gate and i-gate params
-			df_raw = dc*((cs[t-1]*fgate[t]*(1.0 - fgate[t])) +  (c_new[t]*igate[t]*(1.0 - igate[t])))
+			df_raw = dc*(cs[t-1]*fgate[t]*(1.0 - fgate[t]))
+			di_raw = dc*(c_new[t]*igate[t]*(1.0 - igate[t]))
 			dWf += np.dot(df_raw, xh.T)
 			dbf += df_raw
+			dWi += np.dot(di_raw, xh.T)
+			dbi += di_raw
 			
 			# backprop to h(t-1) and c(t-1)
 			dcnext = dc*fgate[t]
-			dxh = np.dot(self.Wo.T, do_raw) + np.dot(self.Wf.T, df_raw) + np.dot(self.Wxc.T, dc_raw)
+			dxh = np.dot(self.Wo.T, do_raw) + np.dot(self.Wf.T, df_raw) + np.dot(self.Wxc.T, dc_raw) + np.dot(self.Wi.T, di_raw)
+			dhnext = dxh[self.vocab_size:]
 
 		for dparam in [dWf, dbf, dWi, dbi, dWxc, dbc, dWo, dbo, dWhy, dby]:
 			np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients

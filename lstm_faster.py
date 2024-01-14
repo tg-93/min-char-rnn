@@ -36,12 +36,13 @@ class LSTM:
 		c = self.c
 		for t in range(n):
 			xh = np.vstack((x, h))
-			fioc = sigmoid(np.dot(self.Wfioc, xh) + self.bfioc)
+			fioc = np.dot(self.Wfioc, xh) + self.bfioc
+			fio = sigmoid(fioc[:3*self.hidden_size])
 			# generate new C
 			c_new = np.tanh(fioc[3*self.hidden_size:])
-			c = (fioc[:self.hidden_size]*c) + (fioc[self.hidden_size:2*self.hidden_size]*c_new)
+			c = (fio[:self.hidden_size]*c) + (fio[self.hidden_size:2*self.hidden_size]*c_new)
 			# generate new h
-			h = fioc[2*self.hidden_size:3*self.hidden_size]*np.tanh(c)
+			h = fio[2*self.hidden_size:3*self.hidden_size]*np.tanh(c)
 			y = np.dot(self.Why, h) + self.by
 			probs = np.exp(y) / np.sum(np.exp(y))
 			ix = np.random.choice(range(self.vocab_size), p=probs.ravel())
@@ -66,11 +67,13 @@ class LSTM:
 			xs[t][inputs[t]] = 1
 			xh = np.vstack((xs[t], hs[t-1]))
 			# calculate gates
-			fgate[t] = sigmoid(np.dot(self.Wf, xh) + self.bf)
-			igate[t] = sigmoid(np.dot(self.Wf, xh) + self.bf)
-			ogate[t] = sigmoid(np.dot(self.Wo, xh) + self.bo)
+			fioc = np.dot(self.Wfioc, xh) + self.bfioc
+			fio = sigmoid(fioc[:3*self.hidden_size])
+			fgate[t] = fio[:self.hidden_size]
+			igate[t] = fio[self.hidden_size:2*self.hidden_size]
+			ogate[t] = fio[2*self.hidden_size:3*self.hidden_size]
 			# generate new C
-			c_new[t] = np.tanh(np.dot(self.Wxc, xh) + self.bc)
+			c_new[t] = np.tanh(fioc[3*self.hidden_size:])
 			cs[t] = (fgate[t]*cs[t-1]) + (igate[t]*c_new[t])
 			# generate new h
 			h_new[t] = np.tanh(cs[t])
