@@ -2,6 +2,7 @@
 # Requires a sampling procedure and loss function defined separately.
 
 import numpy as np
+import math
 from simple_rnn import VanillaRNN
 from lstm_faster import LSTM
 
