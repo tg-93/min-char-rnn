@@ -9,10 +9,10 @@ import argparse
 # Create the parser
 parser = argparse.ArgumentParser()
 # Add arguments
-parser.add_argument("-e", "--num_epochs", help="Number of epochs", default=30)
-parser.add_argument("-n", "--num_iter", help="Number of total iterations", default=10000000)
-parser.add_argument("-h", "--hidden_size", help="size of hidden layer", default=256)
-parser.add_argument("-s", "--sequence_length", help="length of training sequence", default=64)
+parser.add_argument("-epochs", "--num_epochs", help="Number of epochs", type=int,default=30)
+parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=int,default=10000000)
+parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
+parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 
 # Parse the arguments
 args = parser.parse_args()
