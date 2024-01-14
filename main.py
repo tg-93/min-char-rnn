@@ -40,6 +40,8 @@ while epoch <= num_epoch:
     epoch += 1
     print(f'=========== Epoch: {epoch} ============')
     print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
+    if epoch % 5 == 0:
+      model.save(f'lstm_{hidden_size}_{seq_length}_{epoch}:{num_epoch}_')
     
   inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
