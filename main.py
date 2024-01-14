@@ -45,7 +45,7 @@ while epoch <= num_epoch:
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
 
   # sample from the model now and then
-  if n % max(math.sqrt(n), 1000) == 0:
+  if n % max(math.sqrt(n), 100) == 0:
     sample_ix = model.sample(200, inputs[0])
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
     print(f'----\n{txt}\n----')
@@ -53,7 +53,7 @@ while epoch <= num_epoch:
   # forward seq_length characters through the net and fetch gradient
   loss = model.training_step(inputs, targets, learning_rate)
   smooth_loss = smooth_loss * 0.995 + loss * 0.005
-  if n % math.sqrt(n/2, 100) == 0: print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
+  if n % max(math.sqrt(n/4), 10) == 0: print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
 
   p += seq_length # move data pointer
   n += 1
