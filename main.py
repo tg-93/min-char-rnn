@@ -28,6 +28,7 @@ ix_to_char = { i:ch for i,ch in enumerate(chars) }
 # common hyperparameters
 hidden_size = args.hidden_size # size of hidden layer of neurons
 seq_length = args.sequence_length # number of steps to unroll the RNN for
+num_epochs = args.num_epochs
 learning_rate = 1e-1
 
 #model = VanillaRNN(hidden_size, vocab_size)
@@ -39,7 +40,7 @@ smooth_loss = -np.log(1.0/vocab_size)*seq_length # loss at iteration 0
 
 epoch = 0
 n = 0
-while epoch <= args.num_epochs and n < args.num_iter:
+while epoch <= num_epochs and n < args.num_iter:
   # prepare inputs (we're sweeping from left to right in steps seq_length long)
   if p+seq_length+1 >= len(data) or n == 0:
     if n != 0:
@@ -51,14 +52,15 @@ while epoch <= args.num_epochs and n < args.num_iter:
     epoch += 1
     print(f'=========== Epoch: {epoch} ============')
     print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
-    if epoch % 5 == 0:
-      model.save(f'lstm_{hidden_size}_{seq_length}_{args.num_epochs}_checkpoint@{epoch}_')
+    # checkpoint on fibonacci epochs
+    if n>0 and epoch in {1,2,3,5,8,13,21,34,55,89}:
+      model.save(f'lstm_{hidden_size}_{seq_length}_{num_epochs}_checkpoint@{epoch}_')
     
   inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
 
   # sample from the model now and then
-  if n>0 and n % max(5*int(math.log2(n)), 100) == 0:
+  if n>0 and n % (100*epoch) == 0:
     sample_ix = model.sample(200, inputs[0])
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
     print(f'----\n{txt}\n----')
@@ -66,9 +68,10 @@ while epoch <= args.num_epochs and n < args.num_iter:
   # forward seq_length characters through the net and fetch gradient
   loss = model.training_step(inputs, targets, learning_rate)
   smooth_loss = smooth_loss * 0.995 + loss * 0.005
-  if n>0 and n % max(int(math.log2(n)), 10) == 0:
+  if n>0 and n % (10*epoch) == 0:
     print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
 
   p += seq_length # move data pointer
   n += 1
-model.save(f'lstm_{hidden_size}_{seq_length}_{args.num_epochs}_')
+if epoch >= num_epochs:
+  model.save(f'lstm_{hidden_size}_{seq_length}_{num_epochs}_')
