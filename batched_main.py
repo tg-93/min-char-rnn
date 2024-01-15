@@ -3,7 +3,7 @@
 
 import numpy as np
 import math
-from lstm_faster import LSTM
+from lstm_batched import BatchedLSTM
 import argparse
 
 # Create the parser
@@ -13,6 +13,7 @@ parser.add_argument("-epochs", "--num_epochs", help="Number of epochs", type=int
 parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=int,default=10000000)
 parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
+parser.add_argument("-batch", "--batch_size", help="number of sequences to train from at a time", type=int,default=16)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -29,24 +30,27 @@ ix_to_char = { i:ch for i,ch in enumerate(chars) }
 hidden_size = args.hidden_size # size of hidden layer of neurons
 seq_length = args.sequence_length # number of steps to unroll the RNN for
 num_epochs = args.num_epochs
+batch_size = args.batch_size
 learning_rate = 1e-1
 
-#model = VanillaRNN(hidden_size, vocab_size)
-model = LSTM(hidden_size, vocab_size)
+model = BatchedLSTM(hidden_size, vocab_size, batch_size)
 
 p = 0 # data pointer 
 
 smooth_loss = -np.log(1.0/vocab_size)*seq_length # loss at iteration 0
 
+batch_gap = int(len(data)//batch_size)
+
 epoch = 0
 n = 0
 while epoch <= num_epochs and n < args.num_iter:
   # prepare inputs (we're sweeping from left to right in steps seq_length long)
-  if p+seq_length+1 >= len(data) or n == 0:
+  # batch_gap is effectively the start of 2nd batch, so 1st batch should end before that
+  if p+seq_length+1 >= batch_gap or n == 0:
     if n != 0:
       # Get a larger sample at the end of an epoch
-      sample_ix = model.sample(400, inputs[-1])
-      context = ''.join(ix_to_char[ix] for ix in inputs)
+      sample_ix = model.sample(400, inputs[-1][0])
+      context = ''.join(ix_to_char[ix[0]] for ix in inputs)
       print(f'*** Context: {context} ***')
       txt = ''.join(ix_to_char[ix] for ix in sample_ix)
       print('*** Sample: ***')
@@ -59,13 +63,14 @@ while epoch <= num_epochs and n < args.num_iter:
     # checkpoint the model on fibonacci epochs
     if n>0 and epoch in {1,2,3,5,8,13,21,34,55,89}:
       model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
-    
-  inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
-  targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
+  
+  input_end = batch_gap*batch_size
+  inputs = [[char_to_ix[ch] for ch in data[p+i : input_end: batch_gap]] for i in range(seq_length)]
+  targets = [[char_to_ix[ch] for ch in data[p+i+1 : input_end + 1 : batch_gap]] for i in range(seq_length)]
 
   # sample from the model now and then
   if n>0 and n % (100*epoch) == 0:
-    sample_ix = model.sample(200, inputs[0])
+    sample_ix = model.sample(200, inputs[0][0])
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
     print('*** Sample: ***')
     print(f'----\n{txt}\n----')

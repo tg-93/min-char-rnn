@@ -1,4 +1,4 @@
-# LSTM with no peepholes and more vectorised code
+# LSTM with no peepholes and vectorised batch training
 
 import numpy as np
 import os
@@ -7,12 +7,13 @@ from datetime import datetime
 def sigmoid(x):
 	return 1.0/(1.0 + np.exp(-x))
 
-class LSTM:
-	def __init__(self, hidden_size, vocab_size):
+class BatchedLSTM:
+	def __init__(self, hidden_size, vocab_size, batch_size):
 		self.vocab_size = vocab_size
 		self.hidden_size = hidden_size
-		self.c = np.zeros((hidden_size, 1))
-		self.h = np.zeros((hidden_size, 1))
+		self.batch_size = batch_size
+		self.c = np.zeros((hidden_size, batch_size))
+		self.h = np.zeros((hidden_size, batch_size))
 		## Model params
 		# forget gate
 		self.Wfioc = np.random.randn(4*hidden_size, vocab_size+hidden_size)*0.01
@@ -32,8 +33,8 @@ class LSTM:
 		x = np.zeros((self.vocab_size, 1))
 		x[seed_ix] = 1
 		outputs = []
-		h = self.h
-		c = self.c
+		h = self.h[:,0].reshape((self.hidden_size, 1))
+		c = self.c[:,0].reshape((self.hidden_size, 1))
 		for t in range(n):
 			xh = np.vstack((x, h))
 			fioc = np.dot(self.Wfioc, xh) + self.bfioc
@@ -53,7 +54,7 @@ class LSTM:
 
 	def training_step(self, inputs, targets, learning_rate):
 		"""
-		inputs,targets are both list of integers.
+		inputs,targets are both matrices of size n*b, n is sequence length and b is batch size.
 		returns the loss, gradients on model parameters, and last hidden state
 		"""
 		xs, cs, hs, h_new, c_new, fgate, igate, ogate, probs = {}, {}, {}, {}, {}, {}, {}, {}, {}
@@ -63,25 +64,44 @@ class LSTM:
 		# forward pass
 		for t in range(len(inputs)):
 			# encode in 1-of-k representation
-			xs[t] = np.zeros((self.vocab_size,1))
-			xs[t][inputs[t]] = 1
+			xs[t] = np.zeros((self.vocab_size,self.batch_size))
+			for i, ix in enumerate(inputs[t]):
+				xs[t][ix, i] = 1
 			xh = np.vstack((xs[t], hs[t-1]))
+			#assert xh.shape==(self.vocab_size+self.hidden_size, self.batch_size)
+			
 			# calculate gates
-			fioc = np.dot(self.Wfioc, xh) + self.bfioc
-			fio = sigmoid(fioc[:3*self.hidden_size])
-			fgate[t] = fio[:self.hidden_size]
-			igate[t] = fio[self.hidden_size:2*self.hidden_size]
-			ogate[t] = fio[2*self.hidden_size:3*self.hidden_size]
+			fioc = np.dot(self.Wfioc, xh) + self.bfioc #output (4*hidden_size, batch_size)
+			#assert fioc.shape==(4*self.hidden_size, self.batch_size)
+			
+			fio = sigmoid(fioc[:3*self.hidden_size, :])
+			fgate[t] = fio[:self.hidden_size, :]
+			#assert fgate[t].shape==(self.hidden_size, self.batch_size)
+			
+			igate[t] = fio[self.hidden_size:2*self.hidden_size,:]
+			#assert igate[t].shape==(self.hidden_size, self.batch_size)
+			
+			ogate[t] = fio[2*self.hidden_size:3*self.hidden_size,:]
+			#assert ogate[t].shape==(self.hidden_size, self.batch_size)
+
 			# generate new C
-			c_new[t] = np.tanh(fioc[3*self.hidden_size:])
+			c_new[t] = np.tanh(fioc[3*self.hidden_size:,:])
+			#assert c_new[t].shape==(self.hidden_size, self.batch_size)
+
 			cs[t] = (fgate[t]*cs[t-1]) + (igate[t]*c_new[t])
 			# generate new h
 			h_new[t] = np.tanh(cs[t])
 			hs[t] = ogate[t]*h_new[t]
 			# map to y
 			y = np.dot(self.Why, hs[t]) + self.by
-			probs[t] = np.exp(y) / np.sum(np.exp(y)) # probabilities for next chars
-			loss += -np.log(probs[t][targets[t],0]) # softmax (cross-entropy loss)
+			#assert y.shape == (self.vocab_size, self.batch_size)
+
+			probs[t] = np.exp(y) / np.sum(np.exp(y), axis=0) # probabilities for next chars
+			#assert probs[t].shape == (self.vocab_size, self.batch_size)
+			
+			for i, ix in enumerate(targets[t]):
+				loss += -np.log(probs[t][ix, i]) # softmax (cross-entropy loss)
+		loss /= self.batch_size
 
 		# backward pass: gradients
 		dWfioc, dbfioc = np.zeros_like(self.Wfioc), np.zeros_like(self.bfioc)
@@ -92,9 +112,10 @@ class LSTM:
 		for t in reversed(range(len(inputs))):
 			# backprop cross entropy loss through softmax
 			dy = np.copy(probs[t])
-			dy[targets[t]] -= 1.0
+			for i, ix in enumerate(targets[t]):
+				dy[ix, i] -= 1.0
 			dWhy += np.dot(dy, hs[t].T)
-			dby += dy
+			dby += np.sum(dy)
 
 			# backprop to h & add backprop from t+1
 			dh = np.dot(self.Why.T, dy) + dhnext
@@ -115,7 +136,7 @@ class LSTM:
 
 			dfioc_raw = np.vstack((df_raw,  di_raw, do_raw, dc_raw))
 			dWfioc += np.dot(dfioc_raw, xh.T)
-			dbfioc += dfioc_raw
+			dbfioc += np.sum(dfioc_raw)
 			
 			# backprop to h(t-1) and c(t-1)
 			dcnext = dc*fgate[t]
@@ -123,6 +144,7 @@ class LSTM:
 			dhnext = dxh[self.vocab_size:]
 
 		for dparam in [dWfioc, dbfioc, dWhy, dby]:
+			dparam = dparam/self.batch_size
 			np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
 
 		self.h = hs[len(inputs)-1]
@@ -145,7 +167,7 @@ class LSTM:
 
 	def save(self, name):
 		current_date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-		name = f'lstm_{name}_{current_date_time}'
+		name = f'batched_lstm_{name}_{current_date_time}'
 		os.mkdir(name)
 		np.save(name + '/Wfioc.npy', self.Wfioc)
 		np.save(name + '/Why.npy', self.Why)

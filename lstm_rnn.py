@@ -1,4 +1,4 @@
-# LSTM with no peepholes, and coupled input and forget gates
+# LSTM with no peepholes
 
 import numpy as np
 import os
