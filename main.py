@@ -44,15 +44,19 @@ while epoch <= num_epochs and n < args.num_iter:
   # prepare inputs (we're sweeping from left to right in steps seq_length long)
   if p+seq_length+1 >= len(data) or n == 0:
     if n != 0:
+      # Get a larger sample at the end of an epoch
       sample_ix = model.sample(400, inputs[-1])
+      context = ''.join(ix_to_char[ix] for ix in inputs)
+      print(f'*** Context: {context} ***')
       txt = ''.join(ix_to_char[ix] for ix in sample_ix)
+      print('*** Sample: ***')
       print(f'----\n{txt}\n----')
     model.reset_memory()
     p = 0 # go from start of data
     epoch += 1
     print(f'=========== Epoch: {epoch} ============')
     print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
-    # checkpoint on fibonacci epochs
+    # checkpoint the model on fibonacci epochs
     if n>0 and epoch in {1,2,3,5,8,13,21,34,55,89}:
       model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
     
@@ -62,7 +66,10 @@ while epoch <= num_epochs and n < args.num_iter:
   # sample from the model now and then
   if n>0 and n % (100*epoch) == 0:
     sample_ix = model.sample(200, inputs[0])
+    context = ''.join(ix_to_char[ix] for ix in inputs[seq_length/2:])
+    print(f'*** Context: {context} ***')
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
+    print('*** Sample: ***')
     print(f'----\n{txt}\n----')
 
   # forward seq_length characters through the net and fetch gradient
