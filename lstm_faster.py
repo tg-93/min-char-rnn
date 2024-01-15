@@ -145,7 +145,7 @@ class LSTM:
 
 	def save(self, name):
 		current_date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-		name = name + '_' + current_date_time
+		name = f'lstm_{name}_{current_date_time}'
 		os.mkdir(name)
 		np.save(name + '/Wfioc.npy', self.Wfioc)
 		np.save(name + '/Why.npy', self.Why)

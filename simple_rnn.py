@@ -25,7 +25,7 @@ class VanillaRNN:
 
 	def save(self, name):
 		current_date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-		name = name + '_' + current_date_time
+		name = f'vanilla_rnn_{name}_{current_date_time}'
 		os.mkdir(name)
 		np.save(name + '/Wxh.npy', self.Wxh)
 		np.save(name + '/Whh.npy', self.Whh)

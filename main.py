@@ -54,7 +54,7 @@ while epoch <= num_epochs and n < args.num_iter:
     print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
     # checkpoint on fibonacci epochs
     if n>0 and epoch in {1,2,3,5,8,13,21,34,55,89}:
-      model.save(f'lstm_{hidden_size}_{seq_length}_{num_epochs}_checkpoint@{epoch}_')
+      model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
     
   inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
@@ -74,4 +74,4 @@ while epoch <= num_epochs and n < args.num_iter:
   p += seq_length # move data pointer
   n += 1
 if epoch >= num_epochs:
-  model.save(f'lstm_{hidden_size}_{seq_length}_{num_epochs}_')
+  model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}')

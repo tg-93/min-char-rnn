@@ -7,7 +7,7 @@ from datetime import datetime
 def sigmoid(x):
 	return 1.0/(1.0 + np.exp(-x))
 
-class LSTM:
+class SimpleLSTM:
 	def __init__(self, hidden_size, vocab_size):
 		self.vocab_size = vocab_size
 		self.hidden_size = hidden_size
@@ -24,7 +24,7 @@ class LSTM:
 		self.Wo = np.random.randn(hidden_size, vocab_size+hidden_size)*0.01
 		self.bo = np.zeros((hidden_size, 1))
 		# C update
-		self.Wxc = np.random.randn(hidden_size, vocab_size+hidden_size)*0.01
+		self.Wc = np.random.randn(hidden_size, vocab_size+hidden_size)*0.01
 		self.bc = np.zeros((hidden_size, 1))
 		# generate y from h
 		self.Why = np.random.randn(vocab_size, hidden_size) * 0.01
@@ -33,7 +33,7 @@ class LSTM:
 		self.mWf, self.mbf = np.zeros_like(self.Wf), np.zeros_like(self.bf)
 		self.mWi, self.mbi = np.zeros_like(self.Wi), np.zeros_like(self.bi)
 		self.mWo, self.mbo = np.zeros_like(self.Wo), np.zeros_like(self.bo)
-		self.mWxc, self.mbc = np.zeros_like(self.Wxc), np.zeros_like(self.bc)
+		self.mWc, self.mbc = np.zeros_like(self.Wc), np.zeros_like(self.bc)
 		self.mWhy, self.mby = np.zeros_like(self.Why), np.zeros_like(self.by)
 
 	def reset_memory(self):
@@ -44,31 +44,18 @@ class LSTM:
 
 	def save(self, name):
 		current_date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-		name = name + '_' + current_date_time
+		name = f'simple_lstm_{name}_{current_date_time}'
 		os.mkdir(name)
 		np.save(name + '/Wf.npy', self.Wf)
 		np.save(name + '/Wi.npy', self.Wf)
-		np.save(name + '/Wxc.npy', self.Wxc)
 		np.save(name + '/Wo.npy', self.Wo)
+		np.save(name + '/Wc.npy', self.Wc)
 		np.save(name + '/Why.npy', self.Why)
 		np.save(name + '/bf.npy', self.bf)
 		np.save(name + '/bi.npy', self.bf)
 		np.save(name + '/bo.npy', self.bo)
 		np.save(name + '/bc.npy', self.bc)
 		np.save(name + '/by.npy', self.by)
-
-	# def forward(self, input_ix, target):
-	# 	x = np.zeros((self.vocab_size, 1))
-	# 	x[input_ix] = 1
-	# 	fgate = sigmoid(np.dot(self.Wf, x) + self.bf)
-	# 	h_new = np.tanh(np.dot(self.Wxh, x) + self.bh)
-	# 	self.h = (fgate*self.h) + (1.0-fgate)*h_new
-	# 	ogate = sigmoid(np.dot(self.Wo, x) + self.bo)
-	# 	y_a = np.dot(self.Why, self.h) + self.by
-	# 	y = ogate*(np.tanh(y_a))
-	# 	probs = np.exp(y) / np.sum(np.exp(y))
-	# 	loss = -np.log(probs[target]) # softmax (cross-entropy loss)
-	# 	return loss, probs, np.random.choice(range(self.vocab_size), p=probs.ravel())
 
 	def sample(self, n, seed_ix):
 		""" 
@@ -86,7 +73,7 @@ class LSTM:
 			igate = sigmoid(np.dot(self.Wi, xh) + self.bi)
 			ogate = sigmoid(np.dot(self.Wo, xh) + self.bo)
 			# generate new C
-			c_new = np.tanh(np.dot(self.Wxc, xh) + self.bc)
+			c_new = np.tanh(np.dot(self.Wc, xh) + self.bc)
 			c = (fgate*c) + (igate*c_new)
 			# generate new h
 			h = ogate*np.tanh(c)
@@ -115,10 +102,10 @@ class LSTM:
 			xh = np.vstack((xs[t], hs[t-1]))
 			# calculate gates
 			fgate[t] = sigmoid(np.dot(self.Wf, xh) + self.bf)
-			igate[t] = sigmoid(np.dot(self.Wf, xh) + self.bf)
+			igate[t] = sigmoid(np.dot(self.Wi, xh) + self.bi)
 			ogate[t] = sigmoid(np.dot(self.Wo, xh) + self.bo)
 			# generate new C
-			c_new[t] = np.tanh(np.dot(self.Wxc, xh) + self.bc)
+			c_new[t] = np.tanh(np.dot(self.Wc, xh) + self.bc)
 			cs[t] = (fgate[t]*cs[t-1]) + (igate[t]*c_new[t])
 			# generate new h
 			h_new[t] = np.tanh(cs[t])
@@ -132,7 +119,7 @@ class LSTM:
 		dWf, dbf = np.zeros_like(self.Wf), np.zeros_like(self.bf)
 		dWi, dbi = np.zeros_like(self.Wi), np.zeros_like(self.bi)
 		dWo, dbo = np.zeros_like(self.Wo), np.zeros_like(self.bo)
-		dWxc, dbc = np.zeros_like(self.Wxc), np.zeros_like(self.bc)
+		dWc, dbc = np.zeros_like(self.Wc), np.zeros_like(self.bc)
 		dWhy, dby = np.zeros_like(self.Why), np.zeros_like(self.by)
 		
 		dhnext = np.zeros_like(self.h) # derivative wrt h(t+1), since h(t) is propagated to t+1.
@@ -158,7 +145,7 @@ class LSTM:
 
 			# backprop before i-gate and through tanh
 			dc_raw = dc*igate[t]*(1.0 - c_new[t]*c_new[t])
-			dWxc += np.dot(dc_raw, xh.T)
+			dWc += np.dot(dc_raw, xh.T)
 			dbc += dc_raw
 
 			# backprop to f-gate and i-gate params
@@ -171,19 +158,19 @@ class LSTM:
 			
 			# backprop to h(t-1) and c(t-1)
 			dcnext = dc*fgate[t]
-			dxh = np.dot(self.Wo.T, do_raw) + np.dot(self.Wf.T, df_raw) + np.dot(self.Wxc.T, dc_raw) + np.dot(self.Wi.T, di_raw)
+			dxh = np.dot(self.Wo.T, do_raw) + np.dot(self.Wf.T, df_raw) + np.dot(self.Wc.T, dc_raw) + np.dot(self.Wi.T, di_raw)
 			dhnext = dxh[self.vocab_size:]
 
-		for dparam in [dWf, dbf, dWi, dbi, dWxc, dbc, dWo, dbo, dWhy, dby]:
+		for dparam in [dWf, dbf, dWi, dbi, dWc, dbc, dWo, dbo, dWhy, dby]:
 			np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
 
 		self.h = hs[len(inputs)-1]
 		self.c = cs[len(inputs)-1]
 		# perform parameter update with Adagrad
 		for param, dparam, mem in zip(
-			[self.Wf, self.bf, self.Wi, self.bi, self.Wxc, self.bc, self.Wo, self.bo, self.Why, self.by], 
-			[dWf, dbf, dWi, dbi, dWxc, dbc, dWo, dbo, dWhy, dby], 
-			[self.mWf, self.mbf, self.mWi, self.mbi, self.mWxc, self.mbc, self.mWo, self.mbo, self.mWhy, self.mby]):
+			[self.Wf, self.bf, self.Wi, self.bi, self.Wc, self.bc, self.Wo, self.bo, self.Why, self.by], 
+			[dWf, dbf, dWi, dbi, dWc, dbc, dWo, dbo, dWhy, dby], 
+			[self.mWf, self.mbf, self.mWi, self.mbi, self.mWc, self.mbc, self.mWo, self.mbo, self.mWhy, self.mby]):
 			mem += dparam * dparam
 			param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update
 
