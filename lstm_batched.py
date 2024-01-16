@@ -144,7 +144,6 @@ class BatchedLSTM:
 			dhnext = dxh[self.vocab_size:]
 
 		for dparam in [dWfioc, dbfioc, dWhy, dby]:
-			dparam = dparam/self.batch_size
 			np.clip(dparam, -5, 5, out=dparam) # clip to mitigate exploding gradients
 
 		self.h = hs[len(inputs)-1]
