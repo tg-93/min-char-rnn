@@ -125,7 +125,7 @@ class CoupledLSTM:
 			dc = dh*ogate[t]*(1.0 - h_new[t]*h_new[t]) + dcnext
 
 			# backprop before i-gate and through tanh
-			dc_raw = dc*igate[t]*(1.0 - c_new[t]*c_new[t])
+			dc_raw = dc*(1.0 - fgate[t])*(1.0 - c_new[t]*c_new[t])
 
 			# backprop to f-gate and i-gate params
 			df_raw = dc*(cs[t-1] - c_new[t])*fgate[t]*(1.0 - fgate[t])
