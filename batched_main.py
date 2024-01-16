@@ -15,6 +15,7 @@ parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=
 parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 parser.add_argument("-batch", "--batch_size", help="number of sequences to train from at a time", type=int,default=16)
+parser.add_argument("-coupled_gates", type=bool, default=False)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -34,7 +35,10 @@ num_epochs = args.num_epochs
 batch_size = args.batch_size
 learning_rate = 1e-1
 
-model = CoupledLSTM(hidden_size, vocab_size, batch_size)
+if args.coupled_gates:
+  model = CoupledLSTM(hidden_size, vocab_size, batch_size)
+else:
+  model = BatchedLSTM(hidden_size, vocab_size, batch_size)
 
 p = 0 # data pointer 
 
@@ -70,7 +74,7 @@ while epoch <= num_epochs and n < args.num_iter:
   targets = [[char_to_ix[ch] for ch in data[p+i+1 : input_end + 1 : batch_gap]] for i in range(seq_length)]
 
   # sample from the model now and then
-  if n>0 and n % (100*epoch) == 0:
+  if n>0 and n%100 == 0:
     sample_ix = model.sample(200, inputs[0][0])
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
     print('*** Sample: ***')
@@ -79,7 +83,7 @@ while epoch <= num_epochs and n < args.num_iter:
   # forward seq_length characters through the net and fetch gradient
   loss = model.training_step(inputs, targets, learning_rate)
   smooth_loss = smooth_loss * 0.995 + loss * 0.005
-  if n>0 and n % (10*epoch) == 0:
+  if n>0 and n % 10 == 0:
     print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
 
   p += seq_length # move data pointer
