@@ -4,6 +4,7 @@
 import numpy as np
 import math
 from lstm_batched import BatchedLSTM
+from lstm_coupled_gates import CoupledLSTM
 import argparse
 
 # Create the parser
@@ -33,7 +34,7 @@ num_epochs = args.num_epochs
 batch_size = args.batch_size
 learning_rate = 1e-1
 
-model = BatchedLSTM(hidden_size, vocab_size, batch_size)
+model = CoupledLSTM(hidden_size, vocab_size, batch_size)
 
 p = 0 # data pointer 
 
