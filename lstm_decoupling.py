@@ -1,4 +1,5 @@
 # LSTM with no peepholes and vectorised batch training
+# Input and forget gates are coupled until loss > 2*sequence_length and get decoupled afterwards
 
 import numpy as np
 import os
@@ -7,18 +8,18 @@ from datetime import datetime
 def sigmoid(x):
 	return 1.0/(1.0 + np.exp(-x))
 
-class BatchedLSTM:
+class DecouplingLSTM:
 	def __init__(self, hidden_size, vocab_size, batch_size):
 		self.vocab_size = vocab_size
 		self.hidden_size = hidden_size
 		self.batch_size = batch_size
+		self.decoupled = False
 		self.c = np.zeros((hidden_size, batch_size))
 		self.h = np.zeros((hidden_size, batch_size))
 		## Model params
 		# forget gate
 		self.Wfioc = np.random.randn(4*hidden_size, vocab_size+hidden_size)*0.01
 		self.bfioc = np.zeros((4*hidden_size, 1))
-		self.bfioc[:hidden_size] += 0.5
 		# generate y from h
 		self.Why = np.random.randn(vocab_size, hidden_size) * 0.01
 		self.by = np.zeros((vocab_size, 1))
@@ -42,7 +43,10 @@ class BatchedLSTM:
 			fio = sigmoid(fioc[:3*self.hidden_size])
 			# generate new C
 			c_new = np.tanh(fioc[3*self.hidden_size:])
-			c = (fio[:self.hidden_size]*c) + (fio[self.hidden_size:2*self.hidden_size]*c_new)
+			if self.decoupled:
+				c = (fio[:self.hidden_size]*c) + (fio[self.hidden_size:2*self.hidden_size]*c_new)
+			else:
+				c = (fio[:self.hidden_size]*c) + ((1.0 - fio[:self.hidden_size])*c_new)
 			# generate new h
 			h = fio[2*self.hidden_size:3*self.hidden_size]*np.tanh(c)
 			y = np.dot(self.Why, h) + self.by
@@ -79,9 +83,6 @@ class BatchedLSTM:
 			fgate[t] = fio[:self.hidden_size, :]
 			#assert fgate[t].shape==(self.hidden_size, self.batch_size)
 			
-			igate[t] = fio[self.hidden_size:2*self.hidden_size,:]
-			#assert igate[t].shape==(self.hidden_size, self.batch_size)
-			
 			ogate[t] = fio[2*self.hidden_size:3*self.hidden_size,:]
 			#assert ogate[t].shape==(self.hidden_size, self.batch_size)
 
@@ -89,7 +90,12 @@ class BatchedLSTM:
 			c_new[t] = np.tanh(fioc[3*self.hidden_size:,:])
 			#assert c_new[t].shape==(self.hidden_size, self.batch_size)
 
-			cs[t] = (fgate[t]*cs[t-1]) + (igate[t]*c_new[t])
+			if self.decoupled:
+				igate[t] = fio[self.hidden_size:2*self.hidden_size,:]
+				#assert igate[t].shape==(self.hidden_size, self.batch_size)
+				cs[t] = (fgate[t]*cs[t-1]) + (igate[t]*c_new[t])
+			else:
+				cs[t] = (fgate[t]*cs[t-1]) + ((1.0 - fgate[t])*c_new[t])
 			# generate new h
 			h_new[t] = np.tanh(cs[t])
 			hs[t] = ogate[t]*h_new[t]
@@ -128,12 +134,20 @@ class BatchedLSTM:
 			# backprop to c
 			dc = dh*ogate[t]*(1.0 - h_new[t]*h_new[t]) + dcnext
 
-			# backprop before i-gate and through tanh
-			dc_raw = dc*igate[t]*(1.0 - c_new[t]*c_new[t])
+			if self.decoupled:
+				# backprop before i-gate and through tanh
+				dc_raw = dc*igate[t]*(1.0 - c_new[t]*c_new[t])
 
-			# backprop to f-gate and i-gate params
-			df_raw = dc*(cs[t-1]*fgate[t]*(1.0 - fgate[t]))
-			di_raw = dc*(c_new[t]*igate[t]*(1.0 - igate[t]))
+				# backprop to f-gate and i-gate params
+				df_raw = dc*(cs[t-1]*fgate[t]*(1.0 - fgate[t]))
+				di_raw = dc*(c_new[t]*igate[t]*(1.0 - igate[t]))
+			else:
+				# backprop before i-gate and through tanh
+				dc_raw = dc*(1.0 - fgate[t])*(1.0 - c_new[t]*c_new[t])
+
+				# backprop to f-gate and i-gate params
+				df_raw = dc*(cs[t-1] - c_new[t])*fgate[t]*(1.0 - fgate[t])
+				di_raw = np.zeros_like(df_raw)
 
 			dfioc_raw = np.vstack((df_raw,  di_raw, do_raw, dc_raw))
 			dWfioc += np.dot(dfioc_raw, xh.T)
@@ -157,7 +171,18 @@ class BatchedLSTM:
 			mem += dparam * dparam
 			param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update
 
+		if loss < 2*len(inputs) and not self.decoupled:
+			self.decouple()
+
 		return loss
+
+	def decouple(self):
+		self.decoupled = True
+		self.Wfioc[self.hidden_size:2*self.hidden_size] = -self.Wfioc[:self.hidden_size]
+		self.bfioc[self.hidden_size:2*self.hidden_size] = -self.bfioc[:self.hidden_size]
+		self.mWfioc[self.hidden_size:2*self.hidden_size] = self.mWfioc[:self.hidden_size]
+		self.mbfioc[self.hidden_size:2*self.hidden_size] = self.mbfioc[:self.hidden_size]
+		print("###########################\nDECOUPLED\n################################")
 
 	def reset_memory(self):
 		if self.c is not None:
@@ -167,7 +192,7 @@ class BatchedLSTM:
 
 	def save(self, name):
 		current_date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
-		name = f'batched_lstm_{name}_{current_date_time}'
+		name = f'decoupling_lstm_decoupled:{self.decoupled}_{name}_{current_date_time}'
 		os.mkdir(name)
 		np.save(name + '/Wfioc.npy', self.Wfioc)
 		np.save(name + '/Why.npy', self.Why)
