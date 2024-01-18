@@ -5,6 +5,7 @@ import numpy as np
 import math
 from lstm_batched import BatchedLSTM
 from lstm_coupled_gates import CoupledLSTM
+from lstm_decoupling import DecouplingLSTM
 import argparse
 
 # Create the parser
@@ -16,6 +17,7 @@ parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", typ
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 parser.add_argument("-batch", "--batch_size", help="number of sequences to train from at a time", type=int,default=16)
 parser.add_argument("-coupled_gates", type=bool, default=False)
+parser.add_argument("-decoupling", type=bool, default=False)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -37,8 +39,13 @@ learning_rate = 1e-1
 
 if args.coupled_gates:
   model = CoupledLSTM(hidden_size, vocab_size, batch_size)
+  print("Running Coupled gates model")
+elif args.decoupling:
+  model = DecouplingLSTM(hidden_size, vocab_size, batch_size)
+  print("Running decoupling model")
 else:
   model = BatchedLSTM(hidden_size, vocab_size, batch_size)
+  print("Running fixed decoupled model")
 
 p = 0 # data pointer 
 
