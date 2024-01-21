@@ -15,6 +15,7 @@ class VanillaRNN:
 		self.Why = np.random.randn(vocab_size, hidden_size)*0.01 # hidden to output
 		self.bh = np.zeros((hidden_size, 1)) # hidden bias
 		self.by = np.zeros((vocab_size, 1)) # output bias
+		print(f'size of trainable params: {self.Wxh.size + self.bh.size + self.Why.size + self.by.size + self.Whh.size}')
 		# memory variables for Adagrad
 		self.mWxh, self.mWhh, self.mWhy = np.zeros_like(self.Wxh), np.zeros_like(self.Whh), np.zeros_like(self.Why)
 		self.mbh, self.mby = np.zeros_like(self.bh), np.zeros_like(self.by)

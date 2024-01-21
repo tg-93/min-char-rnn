@@ -4,6 +4,9 @@
 import numpy as np
 import math
 from lstm_faster import LSTM
+from simple_rnn import VanillaRNN
+from hippo_rnn import HippoRNN
+from hippo_lstm import HippoLSTM
 import argparse
 
 # Create the parser
@@ -13,6 +16,7 @@ parser.add_argument("-epochs", "--num_epochs", help="Number of epochs", type=int
 parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=int,default=10000000)
 parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
+parser.add_argument("-m", "--model", help="type of model: vanilla_rnn, hippo_rnn, lstm", type=str, default="")
 
 # Parse the arguments
 args = parser.parse_args()
@@ -31,8 +35,16 @@ seq_length = args.sequence_length # number of steps to unroll the RNN for
 num_epochs = args.num_epochs
 learning_rate = 1e-1
 
-#model = VanillaRNN(hidden_size, vocab_size)
-model = LSTM(hidden_size, vocab_size)
+if args.model == "vanilla_rnn":
+  model = VanillaRNN(hidden_size, vocab_size)
+elif args.model == "lstm":
+  model = LSTM(hidden_size, vocab_size)
+elif args.model == "hippo_rnn":
+  model = HippoRNN(hidden_size, min(seq_length//2, hidden_size//4), vocab_size, peephole=True)
+elif args.model == "hippo_lstm":
+  model = HippoLSTM(hidden_size, vocab_size, int(math.sqrt(hidden_size)))
+else:
+  raise Exception("Invalid Model name")
 
 p = 0 # data pointer 
 
@@ -51,20 +63,20 @@ while epoch <= num_epochs and n < args.num_iter:
       txt = ''.join(ix_to_char[ix] for ix in sample_ix)
       print('*** Sample: ***')
       print(f'----\n{txt}\n----')
+      epoch += 1
     model.reset_memory()
     p = 0 # go from start of data
-    epoch += 1
     print(f'=========== Epoch: {epoch} ============')
     print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
     # checkpoint the model on fibonacci epochs
-    if n>0 and epoch in {1,2,3,5,8,13,21,34,55,89}:
+    if epoch in {1,2,3,5,8,13,21,34,55,89}:
       model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
     
   inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]
 
   # sample from the model now and then
-  if n>0 and n % (100*epoch) == 0:
+  if n>0 and n % (100*(epoch+1)) == 0:
     sample_ix = model.sample(200, inputs[0])
     txt = ''.join(ix_to_char[ix] for ix in sample_ix)
     print('*** Sample: ***')
@@ -73,7 +85,7 @@ while epoch <= num_epochs and n < args.num_iter:
   # forward seq_length characters through the net and fetch gradient
   loss = model.training_step(inputs, targets, learning_rate)
   smooth_loss = smooth_loss * 0.995 + loss * 0.005
-  if n>0 and n % (10*epoch) == 0:
+  if n>0 and n % (10*(epoch+1)) == 0:
     print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
 
   p += seq_length # move data pointer
