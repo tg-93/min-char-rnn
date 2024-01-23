@@ -29,17 +29,18 @@ class HippoLSTM:
 		self.h = np.zeros((hidden_size, 1))
 		## Model params
 		# input gate
-		self.Wi = np.random.randn(hidden_size, vocab_size+hidden_size)*0.01
+		self.Wi = np.random.randn(hidden_size, vocab_size+(feature_size*self.memory_size))*0.01
 		self.bi = np.zeros((hidden_size, 1))
 		# C update
-		self.Wc = np.random.randn(hidden_size, vocab_size+hidden_size)*0.01
+		self.Wc = np.random.randn(hidden_size, vocab_size+(feature_size*self.memory_size))*0.01
 		self.bc = np.zeros((hidden_size, 1))
 		# generate y from C
 		self.Wy = np.random.randn(vocab_size, hidden_size) * 0.01
 		self.by = np.zeros((vocab_size, 1))
-		# generate l from C
-		self.Wl = np.random.randn(feature_size, hidden_size) * 0.01
+		# generate l from C and x
+		self.Wl = np.random.randn(feature_size, vocab_size+hidden_size) * 0.01
 		self.bl = np.zeros((feature_size, 1))
+		print(f'Number of trainable params: {self.Wi.size + self.bi.size + self.Wc.size + self.bc.size + self.Wy.size + self.by.size + self.Wl.size + self.bl.size}')
 		## Fixed params for hippo
 		self.A, self.B = transition_mats(self.memory_size)
 		# memory variables for Adagrad
@@ -90,7 +91,8 @@ class HippoLSTM:
 			x[ix] = 1
 			outputs.append(ix)
 			# generate new h
-			l = np.dot(self.Wl, c)
+			xc = np.vstack((x, c))
+			l = np.dot(self.Wl, xc)
 			h, _, _ = self.hippo_update(h.reshape(self.memory_size, self.feature_size), l, t+1)
 			h = h.reshape(self.hidden_size, 1)
 		return outputs
@@ -127,7 +129,8 @@ class HippoLSTM:
 			probs[t] = sp.softmax(y) # probabilities for next chars
 			loss += -np.log(probs[t][targets[t],0]) # softmax (cross-entropy loss)
 			# generate new h
-			l = np.dot(self.Wl, cs[t])
+			xc = np.vstack((xs[t], cs[t]))
+			l = np.dot(self.Wl, xc)
 			ht, a[t], b[t] = self.hippo_update(hs[t-1].reshape(self.memory_size, self.feature_size), l, t+1)
 			hs[t] = ht.reshape(self.memory_size*self.feature_size, 1)
 
@@ -150,12 +153,13 @@ class HippoLSTM:
 			# backprop dh via hippo
 			dh = dhnext.reshape(self.memory_size, self.feature_size)
 			dl = np.dot(dh.T, b[t])
-			dWl += np.dot(dl, cs[t].T)
+			xc = np.vstack((xs[t], cs[t]))
+			dWl += np.dot(dl, xc.T)
 			dbl += dl
 
 			# dc will have 3 components: dy, dcnext and dl
 			dc = np.dot(self.Wy.T, dy) + dcnext
-			dc += np.dot(self.Wl.T, dl)
+			dc += np.dot(self.Wl.T, dl)[self.vocab_size:]
 
 			xh = np.vstack((xs[t], hs[t-1]))
 
