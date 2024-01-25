@@ -7,6 +7,7 @@ from lstm_faster import LSTM
 from simple_rnn import VanillaRNN
 from hippo_rnn import HippoRNN
 from hippo_lstm import HippoLSTM
+from stacked_lstm import StackedLSTM
 import argparse
 
 # Create the parser
@@ -17,6 +18,7 @@ parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=
 parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 parser.add_argument("-m", "--model", help="type of model: vanilla_rnn, hippo_rnn, lstm", type=str, default="")
+parser.add_argument("-l", "--layers", help="number of hidden layers", type=int, default=1)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -43,12 +45,15 @@ elif args.model == "hippo_rnn":
   model = HippoRNN(hidden_size, min(seq_length//2, hidden_size//4), vocab_size, peephole=True)
 elif args.model == "hippo_lstm":
   model = HippoLSTM(hidden_size, vocab_size, int(math.sqrt(hidden_size)))
+elif args.model == "stacked_lstm":
+  num_layers = args.layers
+  model = StackedLSTM(hidden_size, vocab_size, num_layers)
 else:
   raise Exception("Invalid Model name")
 
 p = 0 # data pointer 
 
-smooth_loss = -np.log(1.0/vocab_size)*seq_length # loss at iteration 0
+smooth_loss = -np.log(1.0/vocab_size) # loss at iteration 0
 
 epoch = 0
 n = 0
@@ -65,12 +70,12 @@ while epoch <= num_epochs and n < args.num_iter:
       print(f'----\n{txt}\n----')
       epoch += 1
     model.reset_memory()
-    p = 0 # go from start of data
-    print(f'=========== Epoch: {epoch} ============')
-    print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
     # checkpoint the model on fibonacci epochs
     if epoch in {1,2,3,5,8,13,21,34,55,89}:
       model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
+    p = 0 # go from start of data
+    print(f'=========== Epoch: {epoch} ============')
+    print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
     
   inputs = [char_to_ix[ch] for ch in data[p:p+seq_length]]
   targets = [char_to_ix[ch] for ch in data[p+1:p+seq_length+1]]

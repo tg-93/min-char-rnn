@@ -174,7 +174,7 @@ class DecouplingLSTM:
 		if loss < 2*len(inputs) and not self.decoupled:
 			self.decouple()
 
-		return loss
+		return loss / len(targets)
 
 	def decouple(self):
 		self.decoupled = True

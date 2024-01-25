@@ -97,4 +97,4 @@ class VanillaRNN:
 			mem += dparam * dparam
 			param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update
 
-		return loss
+		return loss / len(targets)

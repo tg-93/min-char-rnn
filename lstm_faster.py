@@ -135,7 +135,7 @@ class LSTM:
 			mem += dparam * dparam
 			param += -learning_rate * dparam / np.sqrt(mem + 1e-8) # adagrad update
 
-		return loss
+		return loss/len(targets)
 
 	def reset_memory(self):
 		if self.c is not None:
