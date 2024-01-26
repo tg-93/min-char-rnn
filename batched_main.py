@@ -6,6 +6,7 @@ import math
 from lstm_batched import BatchedLSTM
 from lstm_coupled_gates import CoupledLSTM
 from lstm_decoupling import DecouplingLSTM
+from stacked_lstm import StackedLSTM
 import argparse
 
 # Create the parser
@@ -16,8 +17,8 @@ parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=
 parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 parser.add_argument("-batch", "--batch_size", help="number of sequences to train from at a time", type=int,default=16)
-parser.add_argument("-coupled_gates", type=bool, default=False)
-parser.add_argument("-decoupling", type=bool, default=False)
+parser.add_argument("-m", "--model", help="type of model: lstm, coupled_lstm, decoupling_lstm, stacked_lstm", type=str, default="")
+parser.add_argument("-l", "--layers", help="number of hidden layers", type=int, default=1)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -37,19 +38,23 @@ num_epochs = args.num_epochs
 batch_size = args.batch_size
 learning_rate = 1e-1
 
-if args.coupled_gates:
+if args.model == "lstm":
+  model = BatchedLSTM(hidden_size, vocab_size, batch_size)
+elif args.model == "coupled_lstm":
   model = CoupledLSTM(hidden_size, vocab_size, batch_size)
   print("Running Coupled gates model")
-elif args.decoupling:
+elif args.model == "decoupling_lstm":
   model = DecouplingLSTM(hidden_size, vocab_size, batch_size)
   print("Running decoupling model")
+elif args.model == "stacked_lstm":
+  num_layers = args.layers
+  model = StackedLSTM(hidden_size, vocab_size, num_layers)
 else:
-  model = BatchedLSTM(hidden_size, vocab_size, batch_size)
-  print("Running fixed decoupled model")
+  raise Exception("Invalid Model name")
 
 p = 0 # data pointer 
 
-smooth_loss = -np.log(1.0/vocab_size)*seq_length # loss at iteration 0
+smooth_loss = -np.log(1.0/vocab_size) # loss at iteration 0
 
 batch_gap = int(len(data)//batch_size)
 

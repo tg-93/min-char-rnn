@@ -18,7 +18,6 @@ parser.add_argument("-n", "--num_iter", help="Number of total iterations", type=
 parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", type=int,default=256)
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 parser.add_argument("-m", "--model", help="type of model: vanilla_rnn, hippo_rnn, lstm", type=str, default="")
-parser.add_argument("-l", "--layers", help="number of hidden layers", type=int, default=1)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -45,9 +44,6 @@ elif args.model == "hippo_rnn":
   model = HippoRNN(hidden_size, min(seq_length//2, hidden_size//4), vocab_size, peephole=True)
 elif args.model == "hippo_lstm":
   model = HippoLSTM(hidden_size, vocab_size, int(math.sqrt(hidden_size)))
-elif args.model == "stacked_lstm":
-  num_layers = args.layers
-  model = StackedLSTM(hidden_size, vocab_size, num_layers)
 else:
   raise Exception("Invalid Model name")
 
