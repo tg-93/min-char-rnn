@@ -24,11 +24,12 @@ args = parser.parse_args()
 
 # data I/O
 data = open('wot1.txt', 'r').read() # should be simple plain text file
-chars = list(set(data))
+chars = sorted(list(set(data)))
 data_size, vocab_size = len(data), len(chars)
 print(f'data has {data_size} characters, {vocab_size} unique.')
 char_to_ix = { ch:i for i,ch in enumerate(chars) }
 ix_to_char = { i:ch for i,ch in enumerate(chars) }
+print(ix_to_char)
 
 # common hyperparameters
 hidden_size = args.hidden_size # size of hidden layer of neurons

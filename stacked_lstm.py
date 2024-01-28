@@ -4,6 +4,7 @@
 # TODO: process batch inputs. this would become a bit more complex, since we'll have to store a matrix of H and C, instead of an array.
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 class StackedLSTM:
@@ -60,15 +61,13 @@ class StackedLSTM:
 				Cs[j] += c_new * torch.sigmoid(fioc[hidden_size : 2 * hidden_size])
 				Hs[j] = torch.tanh(Cs[j]) * torch.sigmoid(fioc[2 * hidden_size : 3 * hidden_size])
 				# print(f'h: {Hs[j].T}')
-			y = self.Wy @ Hs[self.num_layers-1] + self.by
-			logprobs = torch.log(torch.softmax(y, dim=0)) 
-			# print(f'probs for next char: {probs.T}')
-			loss += -torch.mean(logprobs[targets[i], range(batch_size)])
+			logits = self.Wy @ Hs[self.num_layers-1] + self.by
+			loss += F.cross_entropy(logits.T, torch.tensor(targets[i], device=self.device))
 			# print(f'loss for input: {-torch.log(probs[targets[i]]).item()}')
 		loss /= len(targets)
+		self.optimizer.zero_grad()
 		loss.backward()
 		self.optimizer.step()
-		self.optimizer.zero_grad()
 		return loss.item()
 
 	def sample(self, n, seed_ix):
