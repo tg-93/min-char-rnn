@@ -1,7 +1,8 @@
 # stacked_lstm.py
 # an n-layer lstm, all of the same size, coded in raw pytorch, making use of automatic differetiation!!
-# TODO: maintain H and C over successive iterations by copying values (directly keeping track results in autograd loops)
-# TODO: process batch inputs. this would become a bit more complex, since we'll have to store a matrix of H and C, instead of an array.
+# TODO: maintain H and C over successive iterations by copying values (directly keeping track results in autograd loops) - use torch.no_grad()
+# TODO: create separate classes for the single layer lstm and chain them in pytorch/tf style.
+# TODO: try batch norm?
 
 import torch
 import torch.nn.functional as F
@@ -15,17 +16,17 @@ class StackedLSTM:
 		self.vocab_size = vocab_size
 		self.device = device
 		self.Ws = []
-		w0 = np.random.randn(4 * hidden_size, 1 + hidden_size + vocab_size) * 0.01
+		w0 = np.random.randn(4 * hidden_size, 1 + hidden_size + vocab_size)/ (hidden_size+vocab_size) ** 0.5 # xaiming initialisation
 		w0[:,-1] = 0.0
 		w0[:hidden_size, -1] += 1.0
 		num_params += w0.size
 		self.Ws.append(torch.tensor(w0, requires_grad = True, dtype=torch.float32, device=device))
-		self.Wy = torch.tensor(np.random.randn(vocab_size, hidden_size) * 0.01, requires_grad = True, dtype=torch.float32, device=device)
-		num_params += np.prod(self.Wy.size())
+		self.Wy = torch.tensor(np.random.randn(vocab_size, hidden_size) / hidden_size**0.5, requires_grad = True, dtype=torch.float32, device=device)
+		num_params += self.Wy.nelements()
 		self.by = torch.zeros(vocab_size, 1, requires_grad = True, dtype=torch.float32, device=device)
-		num_params += np.prod(self.by.size())
+		num_params += self.Wy.nelements()
 		for _ in range(num_layers-1):
-			w = np.random.randn(4 * hidden_size, 1 + (2 * hidden_size)) * 0.01
+			w = np.random.randn(4 * hidden_size, 1 + (2 * hidden_size)) / (2*hidden_size)**0.5
 			w[:, -1] = 0.0
 			w[:hidden_size,-1] = 1.0
 			self.Ws.append(torch.tensor(w, requires_grad = True, dtype=torch.float32, device=device))

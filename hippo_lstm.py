@@ -2,6 +2,7 @@
 # Instead of generating h[t] via the output gate and tanh on C[t],
 # we do it by adding a linear layer on C[t] and then keeping track of it using hippo
 # hippo output is h[t]
+# TODO: use view instead of reshapes
 
 import numpy as np
 import os
