@@ -1,14 +1,12 @@
-# stacked_lstm.py
-# an n-layer lstm, all of the same size, coded in raw pytorch, making use of automatic differetiation & Adam!
-# TODO: maintain H and C over successive iterations by copying values (directly keeping track results in autograd loops) - use torch.no_grad()
-# TODO: create separate classes for the single layer lstm and chain them in pytorch/tf style.
-# TODO: try batch norm?
+# A stacked vanilla RNN with tanh only in the depth direction, not in the time direction.
+# inspired by https://arxiv.org/abs/2303.06349
+# Uses pytorch sequential model with torch.nn layers
 
 import torch
 import torch.nn.functional as F
 import numpy as np
 
-class StackedLSTM:
+class SemiLinearRNN:
 	def __init__(self, hidden_size, vocab_size, num_layers, device = 'cpu'):
 		num_params = 0
 		self.num_layers = num_layers
@@ -16,13 +14,13 @@ class StackedLSTM:
 		self.vocab_size = vocab_size
 		self.device = device
 		self.Ws = []
-		w0 = np.random.randn(4 * hidden_size, 1 + hidden_size + vocab_size)/ (hidden_size+vocab_size) ** 0.5 # kaiming initialisation
-		w0 *= 5.0/3 # kaiming init factor for tanh nonlinearity.
-		w0[:,-1] = 0.0 # start with 0 bias. maybe not the best approach, but not terrible either.
-		w0[:hidden_size, -1] += 1.0 # initialise forget gate to be on (aka to not forget)
+		w0 = np.random.randn(4 * hidden_size, 1 + hidden_size + vocab_size)/ (hidden_size+vocab_size) ** 0.5 # xaiming initialisation
+		w0[:,-1] = 0.0
+		w0[:hidden_size, -1] += 1.0
 		num_params += w0.size
 		self.Ws.append(torch.tensor(w0, requires_grad = True, dtype=torch.float32, device=device))
 		self.Wy = torch.tensor(np.random.randn(vocab_size, hidden_size) / hidden_size**0.5, requires_grad = True, dtype=torch.float32, device=device)
+		num_params += self.Wy.nelements()
 		self.by = torch.zeros(vocab_size, 1, requires_grad = True, dtype=torch.float32, device=device)
 		num_params += self.Wy.nelements()
 		for _ in range(num_layers-1):
@@ -48,7 +46,8 @@ class StackedLSTM:
 		Hs = {}
 		loss = 0
 		for i in range(len(inputs)):
-			x = F.one_hot(inputs[i], self.vocab_size).float().T
+			x = torch.zeros(self.vocab_size, batch_size, dtype=torch.float32, device=self.device)
+			x[inputs[i], range(batch_size)] += 1
 			# print(f'input: {inputs[i]}')
 			# print(f'encoded input: {x.T}')
 
