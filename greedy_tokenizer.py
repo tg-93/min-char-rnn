@@ -5,7 +5,8 @@
 # up by larger tokens. for example, if the tokenizer learnt a token for "tok", but later
 # learnt another token for "token", such that "tok" is no longer a frequent token by itself,
 # it will free up the token id for "tok" and add something else to the vocab instead.
-# TODO: modularise the init function and reuse code between the first and second loops.
+
+# TODO: use trie for faster/cleaner encoding.
 
 import torch
 import torch.nn.functional as F
@@ -13,15 +14,21 @@ import numpy as np
 import math
 import collections
 
-def add_deps(deps, token, ngram):
-	for x in ngram:
-		if x in deps:
-			deps[x].append(token)
-		else:
-			deps[x] = [token]
+def get_bigrams(text: list[int], skip_tokens: set[int]) -> list[(int, int)]:
+	ret = []
+	for bigram in zip(text, text[1:]):
+		if (bigram[0] not in skip_tokens) and (bigram[1] not in skip_tokens):
+			ret.append(bigram)
+	return ret
+
+def get_top_bigram(encoded_text, skip_tokens):
+	bigram_freqs = collections.Counter(get_bigrams(encoded_text, skip_tokens))
+	# Find most frequent bigram
+	top_bigram = max(bigram_freqs, key=bigram_freqs.get)
+	return top_bigram, bigram_freqs[top_bigram]
 
 class GreedyTokenizer:
-	def __init__(self, text: str, max_vocab_size: int, token_min_freq: int, skip_chars = [' ', ',', '.', '\n', '\t']):
+	def __init__(self, text: str, max_vocab_size: int, token_min_freq: int, skip_chars = [' ', ',', '.', '\n', '\t', '"']):
 		# generate encoding and decoding tables from text
 		self.chars = sorted(list(set(text)))
 		self.word_to_token = { ch:i for i,ch in enumerate(self.chars) }
@@ -33,85 +40,86 @@ class GreedyTokenizer:
 		self.inv_index = {} 		# token to list of tokens that rely on this token
 		self.next_token = len(self.word_to_token)
 		self.skip_tokens = set([self.word_to_token.get(x, -1) for x in skip_chars])
+
+		encoded_text = self.build_vocab(max_vocab_size, encoded_text, token_min_freq)
+		self.vocab_swapping(encoded_text, token_min_freq)
+		self.print_codebook()
+
+	def build_vocab(self, max_vocab_size: int, encoded_text: list[int], token_min_freq):
 		while self.next_token < max_vocab_size:
 			if self.next_token % 10 == 0:
-				print("Vocab Size: ", self.next_token)
-				print("Text Length: ", len(encoded_text))
-			# compute bigram freqs
-			bigram_freqs = collections.Counter(self.get_bigrams(encoded_text))
-			# print("New Bigram count: ", len(bigram_freqs))
-			if len(bigram_freqs) == 0:
+				print("Vocab Size:", self.next_token)
+				print("Text Length:", len(encoded_text))
+			top_bigram, top_bigram_freq = get_top_bigram(encoded_text, self.skip_tokens)
+			if top_bigram_freq < token_min_freq:
 				break
-			# Find most frequent bigram
-			top_bigram = max(bigram_freqs, key=bigram_freqs.get)
-			if bigram_freqs[top_bigram] < token_min_freq:
-				break
-			# Add most frequent bigram to tokens and index
-			self.token_expansion[self.next_token] = top_bigram
-			add_deps(self.inv_index, self.next_token, top_bigram)
-			# unroll token for faster decoding
-			token_text = self.unroll(self.next_token)
-			self.word_to_token[token_text] = self.next_token
-			self.token_to_word[self.next_token] = token_text
-			# update text
+			self.add_token(self.next_token, top_bigram)
 			encoded_text = self.compress_once(encoded_text, top_bigram, self.next_token)
 			self.next_token += 1
-		# remove the most infrequent token and see if it is still the token that gets added
+		return encoded_text
+
+	def vocab_swapping(self, encoded_text: list[int], token_min_freq):
+		# remove infrequent tokens to free up space for newer compound tokens.
+		swap_count = 0
 		while True:
-			# find next bigram to encode
-			# compute bigram freqs
-			bigram_freqs = collections.Counter(self.get_bigrams(encoded_text))
-			if len(bigram_freqs) == 0:
+			top_bigram, top_bigram_freq = get_top_bigram(encoded_text, self.skip_tokens)
+			if top_bigram_freq < token_min_freq:
+				print("No frequent bigram found.")
 				break
-			top_bigram = max(bigram_freqs, key=bigram_freqs.get)
-			# find most infrequent unigram (token)
 			unigram_freqs = collections.Counter(encoded_text)
-			popped_token = min(unigram_freqs, key=lambda x: unigram_freqs[x] if x >= len(self.chars) else float('inf'))
-			# Only swap if new bigram is at least 3x more frequent. This means that a token cannot be popped to add in 
-			# a compound token that contains it.
-			if bigram_freqs[top_bigram] < 3 * unigram_freqs[popped_token]:
-				print("incumbent freq: ", unigram_freqs[popped_token], "challenger freq: ", bigram_freqs[top_bigram])
-				for incumbent in unigram_freqs:
-					if incumbent >= len(self.chars):
-						print(self.token_to_word[incumbent], " : ", unigram_freqs[incumbent])
+			popped_token = min(self.token_expansion, key=lambda x: unigram_freqs.get(x, 0) if x >= len(self.chars) else float('inf'))
+			if popped_token < len(self.chars):
+				print("No infrequent token found for swapping.")
 				break
-			print("Replacing token: ", self.token_to_word[popped_token])
-			# find compound tokens containing popped token from inv_index
-			compound_tokens = self.inv_index[popped_token]
-			# for popped token's expansion, add each compound token to their inv_index
-			popped_token_expansion = self.token_expansion[popped_token]
-			for t in popped_token_expansion:
-				self.inv_index[t].remove(popped_token)
-				self.inv_index[t].extend(compound_tokens)
-			# for each compound token, update its expansion in token_expansion
-			for ct in compound_tokens:
-				new_expansion = []
-				for t in self.token_expansion[ct]:
-					if t == popped_token:
-						new_expansion.extend(popped_token_expansion)
-					else:
-						new_expansion.append(t)
-				self.token_expansion[ct] = new_expansion
-			# expand encoded text with popped token's expansion
-			encoded_text = self.decompress_once(encoded_text, popped_token_expansion, popped_token)
-			# remove popped token from word_to_token and token_to_word
-			del self.word_to_token[self.token_to_word[popped_token]]
-			del self.token_to_word[popped_token]
-			# remove popped token from token_expansion and inv_index
-			del self.inv_index[popped_token]
-			del self.token_expansion[popped_token]
-			# TODO: add top_bigram similar to previous loop
-			# Add most frequent bigram to tokens and index
-			self.token_expansion[popped_token] = top_bigram
-			add_deps(self.inv_index, popped_token, top_bigram)
-			# unroll token for faster decoding
-			token_text = self.unroll(popped_token)
-			print("Replaced with: ", token_text)
-			self.word_to_token[token_text] = popped_token
-			self.token_to_word[popped_token] = token_text
-			# update text
+			if 4 * top_bigram_freq < 5 * unigram_freqs[popped_token]:
+				print("incumbent:", self.token_to_word[popped_token], "freq:", unigram_freqs[popped_token], "challenger freq:", top_bigram_freq)
+				break
+			print("Replacing token:", self.token_to_word[popped_token])
+			encoded_text = self.decompress_once(encoded_text, popped_token)
+			self.remove_token(popped_token)
+			self.add_token(popped_token, top_bigram)
+			print("Replaced with:", self.token_to_word[popped_token])
+			swap_count += 1
 			encoded_text = self.compress_once(encoded_text, top_bigram, popped_token)
-		self.print_codebook()
+		print("Swapped", swap_count, "tokens!")
+		print("Encoded text length:", len(encoded_text))
+
+	def add_deps(self, token, ngram):
+		for x in ngram:
+			if x in self.inv_index:
+				self.inv_index[x].append(token)
+			else:
+				self.inv_index[x] = [token]
+
+	def add_token(self, token, expansion):
+		self.token_expansion[token] = expansion
+		self.add_deps(token, expansion)
+		# unroll token for faster decoding
+		token_text = self.unroll(token)
+		self.word_to_token[token_text] = token
+		self.token_to_word[token] = token_text
+
+	def remove_token(self, token):
+		derivative_tokens = self.inv_index[token]
+		# for removed token's expansion, add each derivative token to their inv_index
+		token_expansion = self.token_expansion[token]
+		for t in token_expansion:
+			self.inv_index[t].remove(token)
+			self.inv_index[t].extend(derivative_tokens)
+		# for each derivative token, update its expansion in token_expansion
+		for dt in derivative_tokens:
+			new_expansion = []
+			for t in self.token_expansion[dt]:
+				if t == token:
+					new_expansion.extend(token_expansion)
+				else:
+					new_expansion.append(t)
+			self.token_expansion[dt] = new_expansion
+
+		del self.word_to_token[self.token_to_word[token]]
+		del self.token_to_word[token]
+		del self.inv_index[token]
+		del self.token_expansion[token]
 
 	def print_codebook(self):
 		ans = []
@@ -137,17 +145,10 @@ class GreedyTokenizer:
 		ret = "".join([self.token_to_word[x] for x in expanded])
 		return ret
 
-
-	def get_bigrams(self, text: list[int]):
+	def decompress_once(self, encoded_text: list[int], token: int) -> list[int]:
+		# takes an encoded text and a token, and replaces all its occurences with its expansion
 		ret = []
-		for bigram in zip(text, text[1:]):
-			if (bigram[0] not in self.skip_tokens) and (bigram[1] not in self.skip_tokens):
-				ret.append(bigram)
-		return ret
-
-	def decompress_once(self, encoded_text: list[int], expansion: list[int], token: int) -> list[int]:
-		# takes an encoded text and a token, and replaces all its occurences with expansion
-		ret = []
+		expansion = self.token_expansion[token]
 		for x in encoded_text:
 			if x == token:
 				ret.extend(expansion)
@@ -194,4 +195,4 @@ class GreedyTokenizer:
 
 # data I/O
 data = open('wot1.txt', 'r').read()
-my_bpe = GreedyTokenizer(data, 500, 50)
+my_bpe = GreedyTokenizer(data, 600, 60)
