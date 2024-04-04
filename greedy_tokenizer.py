@@ -178,7 +178,7 @@ class GreedyTokenizer:
 		i = 0
 		while i < len(text):
 			for j in range(max_token_len, 0, -1):
-				if i + j >= len(text):
+				if i + j > len(text):
 					continue
 				maybe_token = text[i: i+j]
 				if maybe_token in self.word_to_token:
@@ -196,3 +196,16 @@ class GreedyTokenizer:
 # data I/O
 data = open('wot1.txt', 'r').read()
 my_bpe = GreedyTokenizer(data, 600, 60)
+wiki = ["The Wheel of Time is a series of high fantasy novels by American author Robert Jordan, with Brandon Sanderson as a co-author for the final three installments.",
+	"Originally planned as a six-book series with the publication of The Eye of the World in 1990, The Wheel of Time came to span 14 volumes, in addition to a prequel novel and three companion books.",
+	"Jordan died in 2007 while working on what was planned to be the twelfth and final volume in the series.",
+	"He prepared extensive notes, which enabled fellow fantasy author Sanderson to complete the final book, which grew into three volumes: The Gathering Storm (2009), Towers of Midnight (2010), and A Memory of Light (2013).",
+	"The series draws on numerous elements of both European and Asian mythology, most notably the cyclical nature of time found in Buddhism and Hinduism; the metaphysical concepts of balance, duality, and a respect for nature found in Taoism; and the dualistic concepts of God and Satan.",
+	"The Wheel of Time is notable for its length, detailed imaginary world, magic system, and its large cast of characters.",
+	"The eighth through fourteenth books each reached number one on the New York Times Best Seller list. After its completion, the series was nominated for a Hugo Award. As of 2021, the series has sold over 90 million copies worldwide, making it one of the best-selling epic fantasy series since The Lord of the Rings. Its popularity has spawned comic book adaptations, a collectible card game, a video game, a roleplaying game, and a soundtrack album. A television series adaptation produced by Sony Pictures and Amazon Studios premiered in 2021."]
+print("original length: ", sum([len(x) for x in wiki]))
+encoded_wiki = [my_bpe.encode(x) for x in wiki]
+print("encoded length: ", sum([len(x) for x in encoded_wiki]))
+decoded = [my_bpe.decode(x) for x in encoded_wiki]
+print(decoded)
+print([x == y for x, y in zip(decoded, wiki)])
