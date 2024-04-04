@@ -5,6 +5,7 @@
 # up by larger tokens. for example, if the tokenizer learnt a token for "tok", but later
 # learnt another token for "token", such that "tok" is no longer a frequent token by itself,
 # it will free up the token id for "tok" and add something else to the vocab instead.
+# TODO: modularise the init function and reuse code between the first and second loops.
 
 import torch
 import torch.nn.functional as F
