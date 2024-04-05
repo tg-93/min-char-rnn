@@ -1,16 +1,13 @@
-# greedy_tokenizer.py
-# Simple Byte Pair Encoding implementation that directly encodes characters 
+# A greedy tokenizer inspired by BytePairEncoding that directly encodes characters 
 # to tokens and vice-versa, without going into the bytestream details.
-# This one is a bit greedy, and chucks out infrequent tokens once they've been used
-# up by larger tokens. for example, if the tokenizer learnt a token for "tok", but later
-# learnt another token for "token", such that "tok" is no longer a frequent token by itself,
+# This one chucks out infrequent tokens once they've been used up by larger ones.
+# For example, if the tokenizer learnt a token for "tok", but later learnt another
+# token for "token", such that "tok" is no longer a frequent token by itself,
 # it will free up the token id for "tok" and add something else to the vocab instead.
 
-# TODO: use trie for faster/cleaner encoding.
+# TODO: use trie for faster/cleaner encoding [performance].
+# TODO: keep track of bigram freqs while swapping tokens too [performance].
 
-import torch
-import torch.nn.functional as F
-import numpy as np
 import math
 import collections
 
@@ -21,14 +18,12 @@ def get_bigrams(text: list[int], skip_tokens: set[int]) -> list[(int, int)]:
 			ret.append(bigram)
 	return ret
 
-def get_top_bigram(encoded_text, skip_tokens):
-	bigram_freqs = collections.Counter(get_bigrams(encoded_text, skip_tokens))
-	# Find most frequent bigram
+def get_top_bigram(bigram_freqs):
 	top_bigram = max(bigram_freqs, key=bigram_freqs.get)
 	return top_bigram, bigram_freqs[top_bigram]
 
 class GreedyTokenizer:
-	def __init__(self, text: str, max_vocab_size: int, token_min_freq: int, skip_chars = [' ', ',', '.', '\n', '\t', '"']):
+	def __init__(self, text: str, max_vocab_size: int = 1000, token_min_freq: int = 50, skip_chars = [' ', ',', '.', '\n', '\t', '"']):
 		# generate encoding and decoding tables from text
 		self.chars = sorted(list(set(text)))
 		self.word_to_token = { ch:i for i,ch in enumerate(self.chars) }
@@ -36,7 +31,7 @@ class GreedyTokenizer:
 
 		max_vocab_size = min(max_vocab_size, math.sqrt(len(text)))
 		encoded_text = [self.word_to_token[ch] for ch in text]
-		self.token_expansion = {} 	# token to sequence of smaller tokens
+		self.token_expansion = {} 	# token to sequence of constituent tokens
 		self.inv_index = {} 		# token to list of tokens that rely on this token
 		self.next_token = len(self.word_to_token)
 		self.skip_tokens = set([self.word_to_token.get(x, -1) for x in skip_chars])
@@ -46,23 +41,51 @@ class GreedyTokenizer:
 		self.print_codebook()
 
 	def build_vocab(self, max_vocab_size: int, encoded_text: list[int], token_min_freq):
+		bigram_freqs = collections.Counter(get_bigrams(encoded_text, self.skip_tokens))
 		while self.next_token < max_vocab_size:
 			if self.next_token % 10 == 0:
 				print("Vocab Size:", self.next_token)
 				print("Text Length:", len(encoded_text))
-			top_bigram, top_bigram_freq = get_top_bigram(encoded_text, self.skip_tokens)
+			top_bigram, top_bigram_freq = get_top_bigram(bigram_freqs)
 			if top_bigram_freq < token_min_freq:
 				break
 			self.add_token(self.next_token, top_bigram)
-			encoded_text = self.compress_once(encoded_text, top_bigram, self.next_token)
+			encoded_text, encoded_indices = self.compress_once(encoded_text, top_bigram, self.next_token)
+			bigram_freqs = self.update_bigram_freqs(self.next_token, bigram_freqs, encoded_indices, encoded_text)
 			self.next_token += 1
 		return encoded_text
+
+	def update_bigram_freqs(self, new_token, bigram_freqs, token_indices, encoded_text):
+		encoded_bigram = self.token_expansion[new_token]
+		del bigram_freqs[encoded_bigram]
+		for i in token_indices:
+			if encoded_text[i] != new_token:
+				raise Exception("ERROR: new token not found at specified index.")
+			if i > 0:
+				prev_token = encoded_text[i-1] 
+				if prev_token not in self.skip_tokens and prev_token != new_token:
+					if (prev_token, new_token) not in bigram_freqs:
+						bigram_freqs[(prev_token, new_token)] = 0
+					bigram_freqs[(prev_token, new_token)] += 1
+					bigram_freqs[(prev_token, encoded_bigram[0])] -= 1
+			if i + 1 < len(encoded_text):
+				next_token = encoded_text[i+1]
+				if next_token not in self.skip_tokens:
+					if (new_token, next_token) not in bigram_freqs:
+						bigram_freqs[(new_token, next_token)] = 0
+					bigram_freqs[(new_token, next_token)] += 1
+					if next_token != new_token:
+						bigram_freqs[(encoded_bigram[1], next_token)] -= 1
+					else:
+						bigram_freqs[(encoded_bigram[1], encoded_bigram[0])] -= 1
+		return bigram_freqs
 
 	def vocab_swapping(self, encoded_text: list[int], token_min_freq):
 		# remove infrequent tokens to free up space for newer compound tokens.
 		swap_count = 0
 		while True:
-			top_bigram, top_bigram_freq = get_top_bigram(encoded_text, self.skip_tokens)
+			bigram_freqs = collections.Counter(get_bigrams(encoded_text, self.skip_tokens))
+			top_bigram, top_bigram_freq = get_top_bigram(bigram_freqs)
 			if top_bigram_freq < token_min_freq:
 				print("No frequent bigram found.")
 				break
@@ -71,7 +94,7 @@ class GreedyTokenizer:
 			if popped_token < len(self.chars):
 				print("No infrequent token found for swapping.")
 				break
-			if 4 * top_bigram_freq < 5 * unigram_freqs[popped_token]:
+			if top_bigram_freq < 2 * unigram_freqs[popped_token] and unigram_freqs[popped_token] >= token_min_freq:
 				print("incumbent:", self.token_to_word[popped_token], "freq:", unigram_freqs[popped_token], "challenger freq:", top_bigram_freq)
 				break
 			print("Replacing token:", self.token_to_word[popped_token])
@@ -80,7 +103,7 @@ class GreedyTokenizer:
 			self.add_token(popped_token, top_bigram)
 			print("Replaced with:", self.token_to_word[popped_token])
 			swap_count += 1
-			encoded_text = self.compress_once(encoded_text, top_bigram, popped_token)
+			encoded_text, _ = self.compress_once(encoded_text, top_bigram, popped_token)
 		print("Swapped", swap_count, "tokens!")
 		print("Encoded text length:", len(encoded_text))
 
@@ -106,7 +129,7 @@ class GreedyTokenizer:
 		for t in token_expansion:
 			self.inv_index[t].remove(token)
 			self.inv_index[t].extend(derivative_tokens)
-		# for each derivative token, update its expansion in token_expansion
+		# for each derivative token, update its expansion
 		for dt in derivative_tokens:
 			new_expansion = []
 			for t in self.token_expansion[dt]:
@@ -159,10 +182,12 @@ class GreedyTokenizer:
 	def compress_once(self, encoded_text: list[int], bigram: tuple[int], token: int) -> list[int]:
 		# takes an encoded text and a bigram, and replaces all its occurences with token
 		ret = []
+		indices = []
 		i = 0
 		while i < len(encoded_text)-1:
 			curr_bigram = (encoded_text[i], encoded_text[i+1])
 			if curr_bigram == bigram:
+				indices.append(len(ret))
 				ret.append(token)
 				i += 2
 			else:
@@ -170,7 +195,7 @@ class GreedyTokenizer:
 				i += 1
 		if i < len(encoded_text):
 			ret.append(encoded_text[i])
-		return ret
+		return ret, indices
 
 	def encode(self, text: str) -> list[int]:
 		encoded = []
