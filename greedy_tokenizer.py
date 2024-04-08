@@ -5,8 +5,10 @@
 # token for "token", such that "tok" is no longer a frequent token by itself,
 # it will free up the token id for "tok" and add something else to the vocab instead.
 
-# TODO: use trie for faster/cleaner encoding [performance].
-# TODO: keep track of bigram freqs while swapping tokens too [performance].
+# TODO: [perf] use trie for faster/cleaner encoding.
+# TODO: [perf] keep track of bigram freqs while swapping tokens too.
+# TODO: [integration] enable saving the model to file and loading from it.
+# TODO: [quality] include leading spaces in tokens similar to tiktoken.
 
 import math
 import collections
@@ -39,6 +41,9 @@ class GreedyTokenizer:
 		encoded_text = self.build_vocab(max_vocab_size, encoded_text, token_min_freq)
 		self.vocab_swapping(encoded_text, token_min_freq)
 		self.print_codebook()
+
+	def vocab_size(self):
+		return len(self.word_to_token)
 
 	def build_vocab(self, max_vocab_size: int, encoded_text: list[int], token_min_freq):
 		bigram_freqs = collections.Counter(get_bigrams(encoded_text, self.skip_tokens))
@@ -219,18 +224,18 @@ class GreedyTokenizer:
 		return "".join(ans)
 
 # data I/O
-data = open('wot1.txt', 'r').read()
-my_bpe = GreedyTokenizer(data, 600, 60)
-wiki = ["The Wheel of Time is a series of high fantasy novels by American author Robert Jordan, with Brandon Sanderson as a co-author for the final three installments.",
-	"Originally planned as a six-book series with the publication of The Eye of the World in 1990, The Wheel of Time came to span 14 volumes, in addition to a prequel novel and three companion books.",
-	"Jordan died in 2007 while working on what was planned to be the twelfth and final volume in the series.",
-	"He prepared extensive notes, which enabled fellow fantasy author Sanderson to complete the final book, which grew into three volumes: The Gathering Storm (2009), Towers of Midnight (2010), and A Memory of Light (2013).",
-	"The series draws on numerous elements of both European and Asian mythology, most notably the cyclical nature of time found in Buddhism and Hinduism; the metaphysical concepts of balance, duality, and a respect for nature found in Taoism; and the dualistic concepts of God and Satan.",
-	"The Wheel of Time is notable for its length, detailed imaginary world, magic system, and its large cast of characters.",
-	"The eighth through fourteenth books each reached number one on the New York Times Best Seller list. After its completion, the series was nominated for a Hugo Award. As of 2021, the series has sold over 90 million copies worldwide, making it one of the best-selling epic fantasy series since The Lord of the Rings. Its popularity has spawned comic book adaptations, a collectible card game, a video game, a roleplaying game, and a soundtrack album. A television series adaptation produced by Sony Pictures and Amazon Studios premiered in 2021."]
-print("original length: ", sum([len(x) for x in wiki]))
-encoded_wiki = [my_bpe.encode(x) for x in wiki]
-print("encoded length: ", sum([len(x) for x in encoded_wiki]))
-decoded = [my_bpe.decode(x) for x in encoded_wiki]
-print(decoded)
-print([x == y for x, y in zip(decoded, wiki)])
+# data = open('wot1.txt', 'r').read()
+# my_bpe = GreedyTokenizer(data, 800, 60)
+# wiki = ["The Wheel of Time is a series of high fantasy novels by American author Robert Jordan, with Brandon Sanderson as a co-author for the final three installments.",
+# 	"Originally planned as a six-book series with the publication of The Eye of the World in 1990, The Wheel of Time came to span 14 volumes, in addition to a prequel novel and three companion books.",
+# 	"Jordan died in 2007 while working on what was planned to be the twelfth and final volume in the series.",
+# 	"He prepared extensive notes, which enabled fellow fantasy author Sanderson to complete the final book, which grew into three volumes: The Gathering Storm (2009), Towers of Midnight (2010), and A Memory of Light (2013).",
+# 	"The series draws on numerous elements of both European and Asian mythology, most notably the cyclical nature of time found in Buddhism and Hinduism; the metaphysical concepts of balance, duality, and a respect for nature found in Taoism; and the dualistic concepts of God and Satan.",
+# 	"The Wheel of Time is notable for its length, detailed imaginary world, magic system, and its large cast of characters.",
+# 	"The eighth through fourteenth books each reached number one on the New York Times Best Seller list. After its completion, the series was nominated for a Hugo Award. As of 2021, the series has sold over 90 million copies worldwide, making it one of the best-selling epic fantasy series since The Lord of the Rings. Its popularity has spawned comic book adaptations, a collectible card game, a video game, a roleplaying game, and a soundtrack album. A television series adaptation produced by Sony Pictures and Amazon Studios premiered in 2021."]
+# print("original length: ", sum([len(x) for x in wiki]))
+# encoded_wiki = [my_bpe.encode(x) for x in wiki]
+# print("encoded length: ", sum([len(x) for x in encoded_wiki]))
+# decoded = [my_bpe.decode(x) for x in encoded_wiki]
+# print(decoded)
+# print([x == y for x, y in zip(decoded, wiki)])

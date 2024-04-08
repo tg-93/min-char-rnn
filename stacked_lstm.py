@@ -24,7 +24,7 @@ class StackedLSTM:
 		self.Ws.append(torch.tensor(w0, requires_grad = True, dtype=torch.float32, device=device))
 		self.Wy = torch.tensor(np.random.randn(vocab_size, hidden_size) / hidden_size**0.5, requires_grad = True, dtype=torch.float32, device=device)
 		self.by = torch.zeros(vocab_size, 1, requires_grad = True, dtype=torch.float32, device=device)
-		num_params += self.Wy.nelements()
+		num_params += self.Wy.nelement()
 		for _ in range(num_layers-1):
 			w = np.random.randn(4 * hidden_size, 1 + (2 * hidden_size)) / (2*hidden_size)**0.5
 			w[:, -1] = 0.0
@@ -39,6 +39,8 @@ class StackedLSTM:
 		expects 2d array for inputs and targets, or shape seq_length * batch_size, i.e., each row in inputs
 		should contain the char indices for timestep t for the entire batch.
 		"""
+		if not torch.is_tensor(inputs):
+			inputs = torch.tensor(inputs, device = self.device)
 		hidden_size = self.hidden_size
 		batch_size = len(inputs[0])
 		h_empty = torch.zeros(hidden_size, batch_size, dtype=torch.float32, device=self.device)

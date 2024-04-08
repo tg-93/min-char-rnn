@@ -1,8 +1,8 @@
 # input processing, training, and sampling.
 # Requires a sampling procedure and loss function defined separately.
-
 import numpy as np
 import math
+from greedy_tokenizer import GreedyTokenizer
 from lstm_batched import BatchedLSTM
 from lstm_coupled_gates import CoupledLSTM
 from lstm_decoupling import DecouplingLSTM
@@ -18,7 +18,8 @@ parser.add_argument("-hidden", "--hidden_size", help="size of hidden layer", typ
 parser.add_argument("-seq", "--sequence_length", help="length of training sequence", type=int,default=64)
 parser.add_argument("-batch", "--batch_size", help="number of sequences to train from at a time", type=int,default=16)
 parser.add_argument("-m", "--model", help="type of model: lstm, coupled_lstm, decoupling_lstm, stacked_lstm", type=str, default="")
-parser.add_argument("-l", "--layers", help="number of hidden layers", type=int, default=1)
+parser.add_argument("-l", "--layers", help="number of hidden layers", type=int, default=2)
+parser.add_argument("-voc", "--vocab_size", help="size of tokenized vocab", type=int, default=200)
 
 # Parse the arguments
 args = parser.parse_args()
@@ -28,9 +29,12 @@ data = open('wot1.txt', 'r').read() # should be simple plain text file
 chars = sorted(list(set(data)))
 data_size, vocab_size = len(data), len(chars)
 print(f'data has {data_size} characters, {vocab_size} unique.')
-char_to_ix = { ch:i for i,ch in enumerate(chars) }
-ix_to_char = { i:ch for i,ch in enumerate(chars) }
-print(ix_to_char)
+print("Starting tokenizer training.")
+tokenizer = GreedyTokenizer(data, args.vocab_size)
+vocab_size = tokenizer.vocab_size()
+print(f'vocab size after tokenizer training: {vocab_size}.')
+
+encoded_data = tokenizer.encode(data)
 
 # common hyperparameters
 hidden_size = args.hidden_size # size of hidden layer of neurons
@@ -57,7 +61,7 @@ p = 0 # data pointer
 
 smooth_loss = -np.log(1.0/vocab_size) # loss at iteration 0
 
-batch_gap = int(len(data)//batch_size)
+batch_gap = int(len(encoded_data)//batch_size)
 
 epoch = 0
 n = 0
@@ -68,9 +72,9 @@ while epoch <= num_epochs and n < args.num_iter:
     if n != 0:
       # Get a larger sample at the end of an epoch
       sample_ix = model.sample(400, inputs[-1][0])
-      context = ''.join(ix_to_char[ix[0]] for ix in inputs)
+      context = tokenizer.decode(inputs[:][0])
       print(f'*** Context: {context} ***')
-      txt = ''.join(ix_to_char[ix] for ix in sample_ix)
+      txt = tokenizer.decode(sample_ix)
       print('*** Sample: ***')
       print(f'----\n{txt}\n----')
     model.reset_memory()
@@ -83,13 +87,14 @@ while epoch <= num_epochs and n < args.num_iter:
       model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
   
   input_end = batch_gap*batch_size
-  inputs = [[char_to_ix[ch] for ch in data[p+i : input_end: batch_gap]] for i in range(seq_length)]
-  targets = [[char_to_ix[ch] for ch in data[p+i+1 : input_end + 1 : batch_gap]] for i in range(seq_length)]
+  # inputs and targets are of shape seq_length * batch_size
+  inputs = [encoded_data[p+i : input_end: batch_gap] for i in range(seq_length)]
+  targets = [encoded_data[p+i+1 : input_end + 1 : batch_gap] for i in range(seq_length)]
 
   # sample from the model now and then
   if n>0 and n%100 == 0:
     sample_ix = model.sample(200, inputs[0][0])
-    txt = ''.join(ix_to_char[ix] for ix in sample_ix)
+    txt = tokenizer.decode(sample_ix)
     print('*** Sample: ***')
     print(f'----\n{txt}\n----')
 
