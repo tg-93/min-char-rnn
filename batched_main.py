@@ -20,21 +20,31 @@ parser.add_argument("-batch", "--batch_size", help="number of sequences to train
 parser.add_argument("-m", "--model", help="type of model: lstm, coupled_lstm, decoupling_lstm, stacked_lstm", type=str, default="")
 parser.add_argument("-l", "--layers", help="number of hidden layers", type=int, default=2)
 parser.add_argument("-voc", "--vocab_size", help="size of tokenized vocab", type=int, default=200)
+parser.add_argument("-rt", "--retrain_tokenizer", help="retrain tokenizer", type=bool, default=False)
 
 # Parse the arguments
 args = parser.parse_args()
 
 # data I/O
 data = open('wot1.txt', 'r').read() # should be simple plain text file
+data += open('wot2.txt', 'r').read()
+data += open('wot3.txt', 'r').read()
 chars = sorted(list(set(data)))
 data_size, vocab_size = len(data), len(chars)
 print(f'data has {data_size} characters, {vocab_size} unique.')
-print("Starting tokenizer training.")
-tokenizer = GreedyTokenizer(data, args.vocab_size)
+if args.vocab_size in [100, 150, 200, 250, 400, 500, 600, 800, 1000] and not args.retrain_tokenizer:
+  tokenizer_filename = f'greedy_tokenizer_{args.vocab_size}_20240628.pkl'
+  tokenizer = GreedyTokenizer.load(tokenizer_filename)
+else:
+  print("Starting tokenizer training.")
+  tokenizer = GreedyTokenizer(data, args.vocab_size)
 vocab_size = tokenizer.vocab_size()
 print(f'vocab size after tokenizer training: {vocab_size}.')
 
 encoded_data = tokenizer.encode(data)
+
+data_size, observed_vocab_size = len(data), len(chars)
+print(f'Encoded data has {data_size} tokens, {observed_vocab_size} unique.')
 
 # common hyperparameters
 hidden_size = args.hidden_size # size of hidden layer of neurons

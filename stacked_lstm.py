@@ -18,7 +18,7 @@ class StackedLSTM:
 		self.Ws = []
 		w0 = np.random.randn(4 * hidden_size, 1 + hidden_size + vocab_size)/ (hidden_size+vocab_size) ** 0.5 # kaiming initialisation
 		w0 *= 5.0/3 # kaiming init factor for tanh nonlinearity.
-		w0[:,-1] = 0.0 # start with 0 bias. maybe not the best approach, but not terrible either.
+		w0[:,-1] = 0.0 # start with 0 bias. this is fine since the gradient of the bias term doesn't add to gradients.
 		w0[:hidden_size, -1] += 1.0 # initialise forget gate to be on (aka to not forget)
 		num_params += w0.size
 		self.Ws.append(torch.tensor(w0, requires_grad = True, dtype=torch.float32, device=device))

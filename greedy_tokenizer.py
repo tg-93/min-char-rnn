@@ -1,17 +1,21 @@
 # A greedy tokenizer inspired by BytePairEncoding that directly encodes characters 
-# to tokens and vice-versa, without going into the bytestream details.
+# to tokens and vice-versa, without going into the bytestream details (unlike tiktoken).
 # This one chucks out infrequent tokens once they've been used up by larger ones.
 # For example, if the tokenizer learnt a token for "tok", but later learnt another
 # token for "token", such that "tok" is no longer a frequent token by itself,
 # it will free up the token id for "tok" and add something else to the vocab instead.
+# Also, while selecting the next token to add to the vocab, it slightly prefers smaller
+# tokens over larger ones.
 
 # TODO: [perf] use trie for faster/cleaner encoding.
 # TODO: [perf] keep track of bigram freqs while swapping tokens too.
-# TODO: [integration] enable saving the model to file and loading from it.
 # TODO: [quality] include leading spaces in tokens similar to tiktoken.
 
 import math
 import collections
+import pickle
+import os
+from datetime import datetime
 
 def get_bigrams(text: list[int], skip_tokens: set[int]) -> list[(int, int)]:
 	ret = []
@@ -20,14 +24,22 @@ def get_bigrams(text: list[int], skip_tokens: set[int]) -> list[(int, int)]:
 			ret.append(bigram)
 	return ret
 
-def get_top_bigram(bigram_freqs):
-	top_bigram = max(bigram_freqs, key=bigram_freqs.get)
+def get_top_bigram(bigram_freqs, bigram_lengths = None):
+	if bigram_lengths:
+		top_bigram = max(bigram_freqs,
+			key=lambda x: bigram_freqs[x] / math.sqrt(bigram_lengths[x]))
+	else:
+		top_bigram = max(bigram_freqs, key=bigram_freqs.get)
 	return top_bigram, bigram_freqs[top_bigram]
 
+
 class GreedyTokenizer:
-	def __init__(self, text: str, max_vocab_size: int = 1000, token_min_freq: int = 50, skip_chars = [' ', ',', '.', '\n', '\t', '"']):
+	def __init__(self, text: str, max_vocab_size: int = 1000,
+		token_min_freq: int = 50,
+		skip_chars = [' ', ',', '.', '\n', '\t', '"']):
 		# generate encoding and decoding tables from text
 		self.chars = sorted(list(set(text)))
+		print(f'{len(self.chars)} Raw characters:', self.chars)
 		self.word_to_token = { ch:i for i,ch in enumerate(self.chars) }
 		self.token_to_word = { i:ch for i,ch in enumerate(self.chars) }
 
@@ -45,13 +57,22 @@ class GreedyTokenizer:
 	def vocab_size(self):
 		return len(self.word_to_token)
 
+	def get_bigram_lengths(self, bigrams):
+		lengths = {}
+		for bigram in bigrams:
+			lengths[bigram] = len(self.token_to_word[bigram[0]]) + len(self.token_to_word[bigram[1]])
+		return lengths
+
 	def build_vocab(self, max_vocab_size: int, encoded_text: list[int], token_min_freq):
 		bigram_freqs = collections.Counter(get_bigrams(encoded_text, self.skip_tokens))
+		print("Vocab Size:", self.next_token)
+		print("Text Length:", len(encoded_text))
 		while self.next_token < max_vocab_size:
 			if self.next_token % 10 == 0:
 				print("Vocab Size:", self.next_token)
 				print("Text Length:", len(encoded_text))
-			top_bigram, top_bigram_freq = get_top_bigram(bigram_freqs)
+			bigram_lengths = self.get_bigram_lengths(bigram_freqs)
+			top_bigram, top_bigram_freq = get_top_bigram(bigram_freqs, bigram_lengths)
 			if top_bigram_freq < token_min_freq:
 				break
 			self.add_token(self.next_token, top_bigram)
@@ -95,12 +116,14 @@ class GreedyTokenizer:
 				print("No frequent bigram found.")
 				break
 			unigram_freqs = collections.Counter(encoded_text)
-			popped_token = min(self.token_expansion, key=lambda x: unigram_freqs.get(x, 0) if x >= len(self.chars) else float('inf'))
+			popped_token = min(self.token_expansion, \
+				key=lambda x: unigram_freqs.get(x, 0) if x >= len(self.chars) else float('inf'))
 			if popped_token < len(self.chars):
 				print("No infrequent token found for swapping.")
 				break
 			if top_bigram_freq < 2 * unigram_freqs[popped_token] and unigram_freqs[popped_token] >= token_min_freq:
-				print("incumbent:", self.token_to_word[popped_token], "freq:", unigram_freqs[popped_token], "challenger freq:", top_bigram_freq)
+				print("incumbent:", self.token_to_word[popped_token], "freq:", unigram_freqs[popped_token], \
+					"challenger freq:", top_bigram_freq)
 				break
 			print("Replacing token:", self.token_to_word[popped_token])
 			encoded_text = self.decompress_once(encoded_text, popped_token)
@@ -151,9 +174,10 @@ class GreedyTokenizer:
 
 	def print_codebook(self):
 		ans = []
+		ans.extend(self.chars)
 		for token in self.token_expansion:
 			ans.append(self.unroll(token))
-		print(ans)
+		print(sorted(ans))
 
 	def unroll(self, token: int) -> str:
 		if token not in self.token_expansion and token not in self.token_to_word:
@@ -223,9 +247,27 @@ class GreedyTokenizer:
 			ans.append(self.token_to_word[i] if i in self.token_to_word else "<UNKOWN>")
 		return "".join(ans)
 
-# data I/O
+	def save(self) -> str:
+		current_date = datetime.now().strftime('%Y%m%d')
+		filename = f'greedy_tokenizer_{len(self.token_to_word)}_{current_date}.pkl'
+		# Save the object to a file
+		print("Saving object to file...")
+		with open(filename, "wb") as file:
+		    pickle.dump(self, file)
+
+		print(f"Object saved to {filename}")
+		return filename
+
+	def load(filename: str):
+		print("\nReading tokenizer object from file...")
+		with open(filename, "rb") as file:
+		    tokenizer = pickle.load(file)
+		return tokenizer
+
 # data = open('wot1.txt', 'r').read()
-# my_bpe = GreedyTokenizer(data, 800, 60)
+# data += open('wot2.txt', 'r').read()
+# data += open('wot3.txt', 'r').read()
+# my_bpe = GreedyTokenizer(data, 600, 250)
 # wiki = ["The Wheel of Time is a series of high fantasy novels by American author Robert Jordan, with Brandon Sanderson as a co-author for the final three installments.",
 # 	"Originally planned as a six-book series with the publication of The Eye of the World in 1990, The Wheel of Time came to span 14 volumes, in addition to a prequel novel and three companion books.",
 # 	"Jordan died in 2007 while working on what was planned to be the twelfth and final volume in the series.",
@@ -238,4 +280,5 @@ class GreedyTokenizer:
 # print("encoded length: ", sum([len(x) for x in encoded_wiki]))
 # decoded = [my_bpe.decode(x) for x in encoded_wiki]
 # print(decoded)
+# my_bpe.save()
 # print([x == y for x, y in zip(decoded, wiki)])
