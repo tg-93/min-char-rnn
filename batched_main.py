@@ -33,7 +33,7 @@ chars = sorted(list(set(data)))
 data_size, vocab_size = len(data), len(chars)
 print(f'data has {data_size} characters, {vocab_size} unique.')
 if args.vocab_size in [100, 150, 200, 250, 400, 500, 600, 800, 1000] and not args.retrain_tokenizer:
-  tokenizer_filename = f'greedy_tokenizer_{args.vocab_size}_20240628.pkl'
+  tokenizer_filename = f'greedy_tokenizer_{args.vocab_size}_20240630.pkl'
   tokenizer = GreedyTokenizer.load(tokenizer_filename)
 else:
   print("Starting tokenizer training.")
