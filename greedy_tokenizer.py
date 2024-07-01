@@ -9,7 +9,6 @@
 
 # TODO: [perf] use trie for faster/cleaner encoding.
 # TODO: [perf] keep track of bigram freqs while swapping tokens too.
-# TODO: [quality] include leading spaces in tokens similar to tiktoken.
 
 import math
 import collections
@@ -267,7 +266,7 @@ class GreedyTokenizer:
 # data = open('wot1.txt', 'r').read()
 # data += open('wot2.txt', 'r').read()
 # data += open('wot3.txt', 'r').read()
-# my_bpe = GreedyTokenizer(data, 600, 250)
+# my_bpe = GreedyTokenizer(data, 200, 250)
 # wiki = ["The Wheel of Time is a series of high fantasy novels by American author Robert Jordan, with Brandon Sanderson as a co-author for the final three installments.",
 # 	"Originally planned as a six-book series with the publication of The Eye of the World in 1990, The Wheel of Time came to span 14 volumes, in addition to a prequel novel and three companion books.",
 # 	"Jordan died in 2007 while working on what was planned to be the twelfth and final volume in the series.",

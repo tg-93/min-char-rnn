@@ -43,7 +43,7 @@ print(f'vocab size after tokenizer training: {vocab_size}.')
 
 encoded_data = tokenizer.encode(data)
 
-data_size, observed_vocab_size = len(data), len(chars)
+data_size, observed_vocab_size = len(encoded_data), len(set(encoded_data))
 print(f'Encoded data has {data_size} tokens, {observed_vocab_size} unique.')
 
 # common hyperparameters
@@ -67,54 +67,46 @@ elif args.model == "stacked_lstm":
 else:
   raise Exception("Invalid Model name")
 
-p = 0 # data pointer 
-
 smooth_loss = -np.log(1.0/vocab_size) # loss at iteration 0
-
-batch_gap = int(len(encoded_data)//batch_size)
-
+iters_per_epoch = int(len(encoded_data)//(batch_size*seq_length))
 epoch = 0
-n = 0
-while epoch <= num_epochs and n < args.num_iter:
-  # prepare inputs (we're sweeping from left to right in steps seq_length long)
-  # batch_gap is effectively the start of 2nd batch, so 1st batch should end before that
-  if p+seq_length+1 >= batch_gap or n == 0:
-    if n != 0:
-      # Get a larger sample at the end of an epoch
-      sample_ix = model.sample(400, inputs[-1][0])
-      context = tokenizer.decode(inputs[:][0])
-      print(f'*** Context: {context} ***')
+while epoch <= min(num_epochs, int(args.num_iter/iters_per_epoch)):
+  epoch += 1
+  print(f'=========== Epoch: {epoch} ============')
+  model.reset_memory()
+  print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
+
+  for n in range(iters_per_epoch):    
+    input_end = data_size - seq_length - 1
+    # randomly sample starting indices
+    starts = np.random.randint(input_end, size=batch_size)
+    # inputs and targets are of shape seq_length * batch_size
+    inputs = [[encoded_data[i+j] for j in starts] for i in range(seq_length)]
+    targets = [[encoded_data[i+j+1] for j in starts] for i in range(seq_length)]
+
+    # sample from the model now and then
+    if n>0 and n%100 == 0:
+      sample_ix = model.sample(200, inputs[0][0])
       txt = tokenizer.decode(sample_ix)
       print('*** Sample: ***')
       print(f'----\n{txt}\n----')
-    model.reset_memory()
-    p = 0 # go from start of data
-    epoch += 1
-    print(f'=========== Epoch: {epoch} ============')
-    print(f'hidden size: {hidden_size}. seq_length: {seq_length}')
-    # checkpoint the model on fibonacci epochs
-    if n>0 and epoch in {1,2,3,5,8,13,21,34,55,89}:
-      model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}_checkpoint@{epoch}')
-  
-  input_end = batch_gap*batch_size
-  # inputs and targets are of shape seq_length * batch_size
-  inputs = [encoded_data[p+i : input_end: batch_gap] for i in range(seq_length)]
-  targets = [encoded_data[p+i+1 : input_end + 1 : batch_gap] for i in range(seq_length)]
 
-  # sample from the model now and then
-  if n>0 and n%100 == 0:
-    sample_ix = model.sample(200, inputs[0][0])
-    txt = tokenizer.decode(sample_ix)
-    print('*** Sample: ***')
-    print(f'----\n{txt}\n----')
+    # forward seq_length characters through the net and fetch gradient
+    loss = model.training_step(inputs, targets, learning_rate)
+    smooth_loss = smooth_loss * 0.995 + loss * 0.005
+    if n>0 and n % 10 == 0:
+      print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
 
-  # forward seq_length characters through the net and fetch gradient
-  loss = model.training_step(inputs, targets, learning_rate)
-  smooth_loss = smooth_loss * 0.995 + loss * 0.005
-  if n>0 and n % 10 == 0:
-    print(f'epoch: {epoch}, iter: {n}, loss: {smooth_loss}') # print progress
+  # Get a larger sample at the end of an epoch
+  sample_ix = model.sample(400, inputs[-1][0])
+  context = tokenizer.decode(inputs[:][0])
+  print(f'*** Context: {context} ***')
+  txt = tokenizer.decode(sample_ix)
+  print('*** Sample: ***')
+  print(f'----\n{txt}\n----')
 
-  p += seq_length # move data pointer
-  n += 1
-if epoch >= num_epochs:
-  model.save(f'hsize{hidden_size}_seq{seq_length}_ep{num_epochs}')
+  # checkpoint the model on fibonacci epochs
+  if epoch in {1,2,3,5,8,13,21,34,55,89}:
+      model.save(f'hsize{hidden_size}_seq{seq_length}_checkpoint@{epoch}')
+
+model.save(f'hsize{hidden_size}_seq{seq_length}_final')
